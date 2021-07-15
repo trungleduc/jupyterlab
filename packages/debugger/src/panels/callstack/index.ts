@@ -7,7 +7,7 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 
 import { CommandRegistry } from '@lumino/commands';
 
-import { Panel } from '@lumino/widgets';
+import { Panel, Widget } from '@lumino/widgets';
 
 import { CallstackBody } from './body';
 
@@ -30,6 +30,7 @@ export class Callstack extends Panel {
     const translator = options.translator || nullTranslator;
     const header = new CallstackHeader(translator);
     const body = new CallstackBody(model);
+    this._updateWidgetPosition = options.updateWidgetPosition;
 
     header.toolbar.addItem(
       'continue',
@@ -84,6 +85,30 @@ export class Callstack extends Panel {
 
     this.addClass('jp-DebuggerCallstack');
   }
+
+  /**
+   * A message handler invoked on a `'resize'` message.
+   *
+   * @param msg The Lumino message to process.
+   */
+  protected onResize(msg: Widget.ResizeMessage): void {
+    super.onResize(msg);
+    this._requestParentResize(msg);
+  }
+
+  /**
+   * Invoke parent's handler to recompute height of all
+   * widgets.
+   *
+   * @param msg The resize message.
+   */
+  private _requestParentResize(msg: Widget.ResizeMessage): void {
+    if (msg.height < 24 && this._updateWidgetPosition) {
+      this._updateWidgetPosition();
+    }
+  }
+
+  private _updateWidgetPosition: (() => void) | undefined;
 }
 
 /**
@@ -148,5 +173,7 @@ export namespace Callstack {
      * The application language translator
      */
     translator?: ITranslator;
+
+    updateWidgetPosition?: () => void; 
   }
 }

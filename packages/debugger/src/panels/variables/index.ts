@@ -33,9 +33,10 @@ export class Variables extends Panel {
   constructor(options: Variables.IOptions) {
     super();
 
-    const { model, service, commands, themeManager } = options;
+    const { model, service, commands, themeManager, updateWidgetPosition } = options;
     const translator = options.translator || nullTranslator;
     const trans = translator.load('jupyterlab');
+    this._updateWidgetPosition = updateWidgetPosition;
     this._header = new VariablesHeader(translator);
     this._tree = new VariablesBodyTree({ model, service });
     this._table = new VariablesBodyGrid({ model, commands, themeManager });
@@ -128,13 +129,26 @@ export class Variables extends Panel {
    * @param msg The resize message.
    */
   private _resizeBody(msg: Widget.ResizeMessage): void {
+    this._requestParentResize(msg);
     const height = msg.height - this._header.node.offsetHeight;
     this._tree.node.style.height = `${height}px`;
   }
 
+  /**
+   * Invoke parent's handler to recompute height of all
+   * widgets.
+   *
+   * @param msg The resize message.
+   */
+  private _requestParentResize(msg: Widget.ResizeMessage): void {
+    if (msg.height < 24 && this._updateWidgetPosition) {
+      this._updateWidgetPosition();
+    }
+  }
   private _header: VariablesHeader;
   private _tree: VariablesBodyTree;
   private _table: VariablesBodyGrid;
+  private _updateWidgetPosition: (() => void) | undefined
 }
 
 /**
@@ -192,5 +206,7 @@ export namespace Variables {
      * The application language translator
      */
     translator?: ITranslator;
+
+    updateWidgetPosition?: () => void;
   }
 }

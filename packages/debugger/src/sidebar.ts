@@ -9,7 +9,7 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 
 import { bugIcon } from '@jupyterlab/ui-components';
 
-import { Panel, SplitPanel, Widget } from '@lumino/widgets';
+import { Panel, SplitLayout, SplitPanel , Widget  } from '@lumino/widgets';
 
 import { Breakpoints as BreakpointsPanel } from './panels/breakpoints';
 
@@ -50,26 +50,30 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
       commands: callstackCommands.registry,
       service,
       themeManager,
-      translator
+      translator,
+      updateWidgetPosition: this._updateWidgetPosition
     });
 
     this.callstack = new CallstackPanel({
       commands: callstackCommands,
       model: model.callstack,
-      translator
+      translator,
+      updateWidgetPosition: this._updateWidgetPosition
     });
 
     this.breakpoints = new BreakpointsPanel({
       service,
       model: model.breakpoints,
-      translator
+      translator,
+      updateWidgetPosition: this._updateWidgetPosition
     });
 
     this.sources = new SourcesPanel({
       model: model.sources,
       service,
       editorServices,
-      translator
+      translator,
+      updateWidgetPosition: this._updateWidgetPosition
     });
 
     const header = new DebuggerSidebar.Header();
@@ -88,6 +92,55 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
     this.addItem(this.callstack);
     this.addItem(this.breakpoints);
     this.addItem(this.sources);
+  }
+
+  /**
+   * Update height of all children widgets to keep the 
+   * minimum height of each is at least 25px.
+   * 
+   * #### Notes
+   * This method is called on every `resize` event of 
+   * children widgets so 'debouncing' is needed to prevent
+   * multiple function calls.  
+   */
+  private _updateWidgetPosition(): void {
+    clearTimeout(this._timeOut);
+    this._timeOut = setTimeout(() => {
+      let totalHeight = 0;
+      if (this._body.layout) {
+        const layout = this._body.layout as SplitLayout;
+        const widgetHeights = layout.relativeSizes();
+        layout.handles.forEach((element, idx) => {
+          const widget = layout.widgets[idx];
+          const currentHeight = parseInt(
+            widget.node.style.height.replace('px', '')
+          );
+          widgetHeights[idx] = currentHeight;
+          totalHeight += currentHeight;
+        });
+        const totalElements = widgetHeights.length;
+        for (let index = 0; index < totalElements - 1; index++) {
+          const element = widgetHeights[index];
+          if (element < 25) {
+            widgetHeights[index + 1] =
+              widgetHeights[index + 1] - 25 + widgetHeights[index];
+            widgetHeights[index] = 25;
+          }
+        }
+        if (widgetHeights[totalElements - 1] < 25) {
+          for (let index = totalElements - 2; index >= 0; index--) {
+            if (widgetHeights[index] > 50) {
+              widgetHeights[index] =
+                widgetHeights[index] - 25 + widgetHeights[totalElements - 1];
+              widgetHeights[totalElements - 1] = 25;
+              break;
+            }
+          }
+        }
+        const neWSize = widgetHeights.map(ele => ele / totalHeight);
+        layout.setRelativeSizes(neWSize);
+      }
+    }, 500);
   }
 
   /**
@@ -164,6 +217,8 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
    * Container for debugger panels.
    */
   private _body: SplitPanel;
+
+  private _timeOut: number;
 }
 
 /**

@@ -7,7 +7,7 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 
 import { Signal } from '@lumino/signaling';
 
-import { Panel } from '@lumino/widgets';
+import { Panel, Widget } from '@lumino/widgets';
 
 import { closeAllIcon } from '../../icons';
 
@@ -31,6 +31,7 @@ export class Breakpoints extends Panel {
     const { model, service } = options;
     const translator = options.translator || nullTranslator;
     const trans = translator.load('jupyterlab');
+    this._updateWidgetPosition = options.updateWidgetPosition;
 
     const header = new BreakpointsHeader(translator);
     const body = new BreakpointsBody(model);
@@ -66,6 +67,30 @@ export class Breakpoints extends Panel {
     this.addClass('jp-DebuggerBreakpoints');
   }
 
+  /**
+   * A message handler invoked on a `'resize'` message.
+   *
+   * @param msg The Lumino message to process.
+   */
+  protected onResize(msg: Widget.ResizeMessage): void {
+    super.onResize(msg);
+    this._requestParentResize(msg);
+  }
+
+  /**
+   * Invoke parent's handler to recompute height of all
+   * widgets.
+   *
+   * @param msg The resize message.
+   */
+  private _requestParentResize(msg: Widget.ResizeMessage): void {
+    if (msg.height < 24 && this._updateWidgetPosition) {
+      this._updateWidgetPosition();
+    }
+  }
+
+  private _updateWidgetPosition: (() => void) | undefined;
+
   readonly clicked = new Signal<this, IDebugger.IBreakpoint>(this);
 }
 
@@ -91,5 +116,7 @@ export namespace Breakpoints {
      * The application language translator..
      */
     translator?: ITranslator;
+
+    updateWidgetPosition?: () => void; 
   }
 }
