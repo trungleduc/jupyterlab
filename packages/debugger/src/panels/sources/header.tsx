@@ -1,53 +1,36 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { ReactWidget, Toolbar, UseSignal } from '@jupyterlab/apputils';
+import { ReactWidget, UseSignal } from '@jupyterlab/apputils';
 
-import { ITranslator, nullTranslator } from '@jupyterlab/translation';
-
-import { PanelLayout, Widget } from '@lumino/widgets';
+import { ITranslator } from '@jupyterlab/translation';
 
 import { IDebugger } from '../../tokens';
 
 import React from 'react';
 
+import { PanelHeader } from '../header';
+
 /**
  * The header for a Source Panel.
  */
-export class SourcesHeader extends Widget {
+export class SourcesHeader extends PanelHeader {
   /**
    * Instantiate a new SourcesHeader.
    *
    * @param model The model for the Sources.
    */
   constructor(model: IDebugger.Model.ISources, translator?: ITranslator) {
-    super({ node: document.createElement('div') });
-    this.node.classList.add('jp-stack-panel-header');
-
-    translator = translator || nullTranslator;
-    const trans = translator.load('jupyterlab');
-
-    const layout = new PanelLayout();
-    this.layout = layout;
-
-    const title = new Widget({ node: document.createElement('h2') });
-    title.node.textContent = trans.__('Source');
+    super(translator);
+    this.titleWidget.node.textContent = this._trans.__('Source');
 
     const sourcePath = ReactWidget.create(
       <SourcePathComponent model={model} />
     );
-
-    layout.addWidget(title);
-    layout.addWidget(this.toolbar);
-    layout.addWidget(sourcePath);
-
+    this.layout.addWidget(sourcePath);
     this.addClass('jp-DebuggerSources-header');
   }
 
-  /**
-   * The toolbar for the sources header.
-   */
-  readonly toolbar = new Toolbar();
 }
 
 /**

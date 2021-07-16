@@ -57,3 +57,13 @@
   background: var(--jp-layout-color2);
   box-shadow: none;
 }
+
+.jp-DebuggerSidebar-panel-header-IconExpanding {
+  padding-left: 0px;
+  transform: rotate(-90deg);
+}
+
+.jp-DebuggerSidebar-panel-header-IconContracting {
+  padding-left: 0px;
+  transform: rotate(0deg);
+}
