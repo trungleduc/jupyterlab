@@ -44,28 +44,28 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
     } = options;
     const translator = options.translator || nullTranslator;
     const model = service.model;
-
+    const updateWidgetPosition = this._updateWidgetPosition();
     this.variables = new VariablesPanel({
       model: model.variables,
       commands: callstackCommands.registry,
       service,
       themeManager,
       translator,
-      updateWidgetPosition: this._updateWidgetPosition
+      updateWidgetPosition
     });
 
     this.callstack = new CallstackPanel({
       commands: callstackCommands,
       model: model.callstack,
       translator,
-      updateWidgetPosition: this._updateWidgetPosition
+      updateWidgetPosition
     });
 
     this.breakpoints = new BreakpointsPanel({
       service,
       model: model.breakpoints,
       translator,
-      updateWidgetPosition: this._updateWidgetPosition
+      updateWidgetPosition
     });
 
     this.sources = new SourcesPanel({
@@ -73,7 +73,7 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
       service,
       editorServices,
       translator,
-      updateWidgetPosition: this._updateWidgetPosition
+      updateWidgetPosition
     });
 
     const header = new DebuggerSidebar.Header();
@@ -95,44 +95,50 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
   }
 
   /**
-   * Update height of all children widgets to keep the 
-   * minimum height of each is at least 25px.
+
    * 
    * #### Notes
-   * This method is called on every `resize` event of 
+   * `correctWidgetHeight` function is called on every `resize` event of 
    * children widgets so 'debouncing' is needed to prevent
    * multiple function calls.  
    */
-  private _updateWidgetPosition(): void {
-    clearTimeout(this._timeOut);
-    this._timeOut = setTimeout(() => {
+  private _updateWidgetPosition = () => {
+    let timeOut: number;
+    const MIN_HEIGHT = 25
+    const savedHeight = new WeakMap<Widget, number>(); 
+
+    const getWidgetHeight = (widget: Widget) => parseInt(widget.node.style.height.replace('px', ''))
+    
+    /**
+     * Update height of all children widgets to keep the 
+     * minimum height of each is at least MIN_HEIGHT.
+     */
+    const correctWidgetHeight = () => {        
       let totalHeight = 0;
       if (this._body.layout) {
         const layout = this._body.layout as SplitLayout;
         const widgetHeights = layout.relativeSizes();
-        layout.handles.forEach((element, idx) => {
+        layout.handles.forEach((_, idx) => {
           const widget = layout.widgets[idx];
-          const currentHeight = parseInt(
-            widget.node.style.height.replace('px', '')
-          );
+          const currentHeight = getWidgetHeight(widget);
           widgetHeights[idx] = currentHeight;
           totalHeight += currentHeight;
         });
         const totalElements = widgetHeights.length;
         for (let index = 0; index < totalElements - 1; index++) {
           const element = widgetHeights[index];
-          if (element < 25) {
+          if (element < MIN_HEIGHT) {
             widgetHeights[index + 1] =
-              widgetHeights[index + 1] - 25 + widgetHeights[index];
-            widgetHeights[index] = 25;
+              widgetHeights[index + 1] - MIN_HEIGHT + widgetHeights[index];
+            widgetHeights[index] = MIN_HEIGHT;
           }
         }
-        if (widgetHeights[totalElements - 1] < 25) {
+        if (widgetHeights[totalElements - 1] < MIN_HEIGHT) {
           for (let index = totalElements - 2; index >= 0; index--) {
-            if (widgetHeights[index] > 50) {
+            if (widgetHeights[index] > 2*MIN_HEIGHT) {
               widgetHeights[index] =
-                widgetHeights[index] - 25 + widgetHeights[totalElements - 1];
-              widgetHeights[totalElements - 1] = 25;
+                widgetHeights[index] - MIN_HEIGHT + widgetHeights[totalElements - 1];
+              widgetHeights[totalElements - 1] = MIN_HEIGHT;
               break;
             }
           }
@@ -140,8 +146,63 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
         const neWSize = widgetHeights.map(ele => ele / totalHeight);
         layout.setRelativeSizes(neWSize);
       }
-    }, 500);
+    }
+
+    const toggleWidget = (widget: Panel) => {
+
+      const layout = this._body.layout as SplitLayout;
+      const widgetHeights = this._body.widgets.map(w => getWidgetHeight(w));
+      const totalHeight = widgetHeights.reduce((pv, cv) => pv + cv, 0)
+      
+      const widgetId =  this._body.widgets.indexOf(widget);
+      if(widgetId === -1) return; //Bail early
+      
+      const currentHeight = widgetHeights[widgetId];
+      if(widgetId > 0){
+        if(currentHeight > 25 ){
+          savedHeight.set(widget, currentHeight)
+          widgetHeights[widgetId - 1] = widgetHeights[widgetId - 1] + currentHeight - 25;
+          widgetHeights[widgetId] = 25;
+        } else {
+          const lastHeight = savedHeight.get(widget)
+          if(lastHeight && widgetHeights[widgetId - 1] > lastHeight ){
+            widgetHeights[widgetId - 1] = widgetHeights[widgetId - 1] + widgetHeights[widgetId] - lastHeight;
+            widgetHeights[widgetId] = lastHeight;
+          } else {
+            widgetHeights[widgetId] = widgetHeights[widgetId - 1] + widgetHeights[widgetId] - 25;              
+            widgetHeights[widgetId - 1] = 25;
+          }
+        }
+      } else {
+        if(currentHeight > 25 ){
+          savedHeight.set(widget, currentHeight)
+          widgetHeights[widgetId + 1] = widgetHeights[widgetId + 1] + currentHeight - 25;
+          widgetHeights[widgetId] = 25;
+        } else {
+          const lastHeight = savedHeight.get(widget)
+          if(lastHeight && widgetHeights[widgetId + 1] > lastHeight ){
+            widgetHeights[widgetId + 1] = widgetHeights[widgetId + 1] + widgetHeights[widgetId] - lastHeight;
+            widgetHeights[widgetId] = lastHeight;
+          } else {
+            widgetHeights[widgetId] = widgetHeights[widgetId + 1] + widgetHeights[widgetId] - 25;              
+            widgetHeights[widgetId + 1] = 25;
+          }
+        }        
+      }
+      const neWSize = widgetHeights.map(ele => ele / totalHeight);
+      layout.setRelativeSizes(neWSize);
+      
+    }
+    return (widget?: Panel) => {
+      if(widget){
+        toggleWidget(widget);
+      } else {
+        clearTimeout(timeOut);
+        timeOut = setTimeout(correctWidgetHeight, 500);
+      }
+    }
   }
+
 
   /**
    * Add an item at the end of the sidebar.
@@ -218,7 +279,6 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
    */
   private _body: SplitPanel;
 
-  private _timeOut: number;
 }
 
 /**

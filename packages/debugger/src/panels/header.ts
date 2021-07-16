@@ -24,7 +24,6 @@ export class PanelHeader extends Widget {
     translator = translator || nullTranslator;
     this._trans = translator.load('jupyterlab');
     this.titleWidget = new Widget({ node: document.createElement('h2') });
-    this.titleWidget.node.textContent = this._trans.__('');
 
     this.expandIcon = new Widget({ node: document.createElement('div') });
 
@@ -40,7 +39,6 @@ export class PanelHeader extends Widget {
   }
 
   public toggleIcon = (angle : 0 | -90):void => {
-    
     if(angle !== this._iconAngle){
       this._iconElement.classList.remove(PanelHeader.ICON_EXPANDING_CLASS, PanelHeader.ICON_CONTRACTING_CLASS)
       if(angle === -90){

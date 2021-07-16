@@ -80,6 +80,8 @@ export class Callstack extends Panel {
       })
     );
 
+    header.titleWidget.node.onclick = this._toggleWidgetHeight;
+
     this.addWidget(header);
     this.addWidget(body);
 
@@ -108,7 +110,18 @@ export class Callstack extends Panel {
     }
   }
 
-  private _updateWidgetPosition: (() => void) | undefined;
+  /**
+   * Invoke parent's handler to expand or contract this widget.
+   *
+   * @param msg The resize message.
+   */
+  private _toggleWidgetHeight = () => {
+    if (this._updateWidgetPosition) {
+      this._updateWidgetPosition(this);      
+    }
+  }
+
+  private _updateWidgetPosition: ((widget?: Panel) => void) | undefined;
 }
 
 /**

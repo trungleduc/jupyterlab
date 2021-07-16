@@ -33,7 +33,13 @@ export class Variables extends Panel {
   constructor(options: Variables.IOptions) {
     super();
 
-    const { model, service, commands, themeManager, updateWidgetPosition } = options;
+    const {
+      model,
+      service,
+      commands,
+      themeManager,
+      updateWidgetPosition
+    } = options;
     const translator = options.translator || nullTranslator;
     const trans = translator.load('jupyterlab');
     this._updateWidgetPosition = updateWidgetPosition;
@@ -99,6 +105,8 @@ export class Variables extends Panel {
 
     this._header.toolbar.addItem('view-VariableTableView', tableViewButton);
 
+    this._header.titleWidget.node.onclick = this._toggleWidgetHeight;
+
     this.addWidget(this._header);
     this.addWidget(this._tree);
     this.addWidget(this._table);
@@ -145,10 +153,23 @@ export class Variables extends Panel {
       this._updateWidgetPosition();
     }
   }
+
+  /**
+   * Invoke parent's handler to expand or contract this widget.
+   *
+   * @param msg The resize message.
+   */
+  private _toggleWidgetHeight = () => {
+    if (this._updateWidgetPosition) {
+      this._updateWidgetPosition(this);
+    }
+  };
+
+  private _updateWidgetPosition: ((widget?: Panel) => void) | undefined;
+
   private _header: VariablesHeader;
   private _tree: VariablesBodyTree;
   private _table: VariablesBodyGrid;
-  private _updateWidgetPosition: (() => void) | undefined
 }
 
 /**

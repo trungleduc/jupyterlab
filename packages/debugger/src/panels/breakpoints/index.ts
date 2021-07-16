@@ -7,11 +7,11 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 
 import { Signal } from '@lumino/signaling';
 
-import { Panel, Widget } from '@lumino/widgets';
-
 import { closeAllIcon } from '../../icons';
 
 import { IDebugger } from '../../tokens';
+
+import { BasePanel } from '../basepanel';
 
 import { BreakpointsBody } from './body';
 
@@ -20,18 +20,17 @@ import { BreakpointsHeader } from './header';
 /**
  * A Panel to show a list of breakpoints.
  */
-export class Breakpoints extends Panel {
+export class Breakpoints extends BasePanel {
   /**
    * Instantiate a new Breakpoints Panel.
    *
    * @param options The instantiation options for a Breakpoints Panel.
    */
   constructor(options: Breakpoints.IOptions) {
-    super();
+    super(options);
     const { model, service } = options;
     const translator = options.translator || nullTranslator;
     const trans = translator.load('jupyterlab');
-    this._updateWidgetPosition = options.updateWidgetPosition;
 
     const header = new BreakpointsHeader(translator);
     const body = new BreakpointsBody(model);
@@ -60,36 +59,14 @@ export class Breakpoints extends Panel {
         tooltip: trans.__('Remove All Breakpoints')
       })
     );
+    header.titleWidget.node.onclick = this._toggleWidgetHeight
+    header.expandIcon.node.onclick = this._toggleWidgetHeight
 
     this.addWidget(header);
     this.addWidget(body);
 
     this.addClass('jp-DebuggerBreakpoints');
   }
-
-  /**
-   * A message handler invoked on a `'resize'` message.
-   *
-   * @param msg The Lumino message to process.
-   */
-  protected onResize(msg: Widget.ResizeMessage): void {
-    super.onResize(msg);
-    this._requestParentResize(msg);
-  }
-
-  /**
-   * Invoke parent's handler to recompute height of all
-   * widgets.
-   *
-   * @param msg The resize message.
-   */
-  private _requestParentResize(msg: Widget.ResizeMessage): void {
-    if (msg.height < 24 && this._updateWidgetPosition) {
-      this._updateWidgetPosition();
-    }
-  }
-
-  private _updateWidgetPosition: (() => void) | undefined;
 
   readonly clicked = new Signal<this, IDebugger.IBreakpoint>(this);
 }
@@ -101,7 +78,7 @@ export namespace Breakpoints {
   /**
    * Instantiation options for `Breakpoints`.
    */
-  export interface IOptions extends Panel.IOptions {
+  export interface IOptions extends BasePanel.IOptions {
     /**
      * The breakpoints model.
      */
@@ -116,7 +93,5 @@ export namespace Breakpoints {
      * The application language translator..
      */
     translator?: ITranslator;
-
-    updateWidgetPosition?: () => void; 
   }
 }
