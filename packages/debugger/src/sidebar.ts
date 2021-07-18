@@ -158,36 +158,43 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
       if(widgetId === -1) return; //Bail early
       
       const currentHeight = widgetHeights[widgetId];
-      if(widgetId > 0){
-        if(currentHeight > 25 ){
-          savedHeight.set(widget, currentHeight)
-          widgetHeights[widgetId - 1] = widgetHeights[widgetId - 1] + currentHeight - 25;
-          widgetHeights[widgetId] = 25;
-        } else {
-          const lastHeight = savedHeight.get(widget)
-          if(lastHeight && widgetHeights[widgetId - 1] > lastHeight ){
-            widgetHeights[widgetId - 1] = widgetHeights[widgetId - 1] + widgetHeights[widgetId] - lastHeight;
-            widgetHeights[widgetId] = lastHeight;
+      let offsetId: number;
+      if (widgetId < widgetHeights.length - 1) {
+        offsetId = 1
+      } else {
+        offsetId = -1      
+      }
+
+      let nextId = widgetId + offsetId;
+      
+      if(currentHeight > 25 ){
+        savedHeight.set(widget, currentHeight)
+        while (widgetHeights[nextId]) {
+          if (widgetHeights[nextId] <= 25 && nextId > 0 && nextId < widgetHeights.length - 1 ) {
+              widgetHeights[nextId] = 25;
+              nextId += offsetId;
           } else {
-            widgetHeights[widgetId] = widgetHeights[widgetId - 1] + widgetHeights[widgetId] - 25;              
-            widgetHeights[widgetId - 1] = 25;
+            widgetHeights[nextId] = widgetHeights[nextId] + currentHeight - 25
+            break;
           }
         }
+        widgetHeights[widgetId] = 25;
       } else {
-        if(currentHeight > 25 ){
-          savedHeight.set(widget, currentHeight)
-          widgetHeights[widgetId + 1] = widgetHeights[widgetId + 1] + currentHeight - 25;
-          widgetHeights[widgetId] = 25;
-        } else {
-          const lastHeight = savedHeight.get(widget)
-          if(lastHeight && widgetHeights[widgetId + 1] > lastHeight ){
-            widgetHeights[widgetId + 1] = widgetHeights[widgetId + 1] + widgetHeights[widgetId] - lastHeight;
+        const lastHeight = savedHeight.get(widget)
+        while (widgetHeights[nextId]) {
+          if (widgetHeights[nextId] <= 25) {
+            widgetHeights[nextId] = 25;
+            nextId += offsetId;
+          } else if (lastHeight && widgetHeights[nextId] > lastHeight) {
+            widgetHeights[nextId] = widgetHeights[nextId] + widgetHeights[widgetId] - lastHeight;
             widgetHeights[widgetId] = lastHeight;
+            break;
           } else {
-            widgetHeights[widgetId] = widgetHeights[widgetId + 1] + widgetHeights[widgetId] - 25;              
-            widgetHeights[widgetId + 1] = 25;
+            widgetHeights[widgetId] = widgetHeights[nextId] + widgetHeights[widgetId] - 25;              
+            widgetHeights[nextId] = 25;
+            break;
           }
-        }        
+        }          
       }
       const neWSize = widgetHeights.map(ele => ele / totalHeight);
       layout.setRelativeSizes(neWSize);
