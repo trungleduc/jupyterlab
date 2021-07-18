@@ -1,7 +1,6 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { TranslationBundle } from '@jupyterlab/translation';
 import { Panel, Widget } from '@lumino/widgets';
 
 import {  PanelHeader } from './header';
@@ -9,13 +8,13 @@ import {  PanelHeader } from './header';
 /**
  * A base class for panels of debugger.
  */
-export class BasePanel extends Panel {
+export class BaseDebuggerPanel extends Panel {
   /**
    * Instantiate a new  BasePanel.
    *
    * @param options The instantiation options for a Breakpoints Panel.
    */
-  constructor(options: BasePanel.IOptions) {
+  constructor(options: BaseDebuggerPanel.IOptions) {
     super();
     this._updateWidgetPosition = options.updateWidgetPosition;
     this.addClass('jp-DebuggerBreakpoints');
@@ -59,7 +58,6 @@ export class BasePanel extends Panel {
     }
   }
 
-  protected _trans: TranslationBundle;
   private _updateWidgetPosition: ((widget?: Panel) => void) | undefined;
 
 }
@@ -67,7 +65,7 @@ export class BasePanel extends Panel {
 /**
  * A namespace for Breakpoints `statics`.
  */
-export namespace BasePanel {
+export namespace BaseDebuggerPanel {
   /**
    * Instantiation options for `Breakpoints`.
    */

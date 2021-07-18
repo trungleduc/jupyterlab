@@ -11,7 +11,7 @@ import { closeAllIcon } from '../../icons';
 
 import { IDebugger } from '../../tokens';
 
-import { BasePanel } from '../basepanel';
+import { BaseDebuggerPanel } from '../basedebuggerpanel';
 
 import { BreakpointsBody } from './body';
 
@@ -20,7 +20,7 @@ import { BreakpointsHeader } from './header';
 /**
  * A Panel to show a list of breakpoints.
  */
-export class Breakpoints extends BasePanel {
+export class Breakpoints extends BaseDebuggerPanel {
   /**
    * Instantiate a new Breakpoints Panel.
    *
@@ -59,8 +59,7 @@ export class Breakpoints extends BasePanel {
         tooltip: trans.__('Remove All Breakpoints')
       })
     );
-    header.titleWidget.node.onclick = this._toggleWidgetHeight
-    header.expandIcon.node.onclick = this._toggleWidgetHeight
+    header.attachOnClickListener(this._toggleWidgetHeight)
 
     this.addWidget(header);
     this.addWidget(body);
@@ -78,7 +77,7 @@ export namespace Breakpoints {
   /**
    * Instantiation options for `Breakpoints`.
    */
-  export interface IOptions extends BasePanel.IOptions {
+  export interface IOptions extends BaseDebuggerPanel.IOptions {
     /**
      * The breakpoints model.
      */

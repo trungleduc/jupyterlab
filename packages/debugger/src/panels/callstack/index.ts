@@ -7,30 +7,29 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 
 import { CommandRegistry } from '@lumino/commands';
 
-import { Panel, Widget } from '@lumino/widgets';
-
 import { CallstackBody } from './body';
 
 import { CallstackHeader } from './header';
 
 import { IDebugger } from '../../tokens';
 
+import { BaseDebuggerPanel } from '../basedebuggerpanel';
+
 /**
  * A Panel to show a callstack.
  */
-export class Callstack extends Panel {
+export class Callstack extends BaseDebuggerPanel {
   /**
    * Instantiate a new Callstack Panel.
    *
    * @param options The instantiation options for a Callstack Panel.
    */
   constructor(options: Callstack.IOptions) {
-    super();
+    super(options);
     const { commands, model } = options;
     const translator = options.translator || nullTranslator;
     const header = new CallstackHeader(translator);
     const body = new CallstackBody(model);
-    this._updateWidgetPosition = options.updateWidgetPosition;
 
     header.toolbar.addItem(
       'continue',
@@ -80,48 +79,16 @@ export class Callstack extends Panel {
       })
     );
 
-    header.titleWidget.node.onclick = this._toggleWidgetHeight;
+    header.attachOnClickListener(this._toggleWidgetHeight)
+    
+    //paddingDiv.node.onclick = this._toggleWidgetHeight;
 
     this.addWidget(header);
     this.addWidget(body);
+  
 
     this.addClass('jp-DebuggerCallstack');
   }
-
-  /**
-   * A message handler invoked on a `'resize'` message.
-   *
-   * @param msg The Lumino message to process.
-   */
-  protected onResize(msg: Widget.ResizeMessage): void {
-    super.onResize(msg);
-    this._requestParentResize(msg);
-  }
-
-  /**
-   * Invoke parent's handler to recompute height of all
-   * widgets.
-   *
-   * @param msg The resize message.
-   */
-  private _requestParentResize(msg: Widget.ResizeMessage): void {
-    if (msg.height < 24 && this._updateWidgetPosition) {
-      this._updateWidgetPosition();
-    }
-  }
-
-  /**
-   * Invoke parent's handler to expand or contract this widget.
-   *
-   * @param msg The resize message.
-   */
-  private _toggleWidgetHeight = () => {
-    if (this._updateWidgetPosition) {
-      this._updateWidgetPosition(this);      
-    }
-  }
-
-  private _updateWidgetPosition: ((widget?: Panel) => void) | undefined;
 }
 
 /**
@@ -171,7 +138,7 @@ export namespace Callstack {
   /**
    * Instantiation options for `Callstack`.
    */
-  export interface IOptions extends Panel.IOptions {
+  export interface IOptions extends BaseDebuggerPanel.IOptions {
     /**
      * The toolbar commands interface for the callstack.
      */
@@ -187,6 +154,5 @@ export namespace Callstack {
      */
     translator?: ITranslator;
 
-    updateWidgetPosition?: () => void; 
   }
 }

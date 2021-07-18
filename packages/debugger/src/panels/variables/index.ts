@@ -9,9 +9,11 @@ import { tableRowsIcon, treeViewIcon } from '@jupyterlab/ui-components';
 
 import { CommandRegistry } from '@lumino/commands';
 
-import { Panel, Widget } from '@lumino/widgets';
+import { Widget } from '@lumino/widgets';
 
 import { IDebugger } from '../../tokens';
+
+import { BaseDebuggerPanel } from '../basedebuggerpanel';
 
 import { VariablesBodyGrid } from './grid';
 
@@ -24,25 +26,24 @@ import { VariablesBodyTree } from './tree';
 /**
  * A Panel to show a variable explorer.
  */
-export class Variables extends Panel {
+export class Variables extends BaseDebuggerPanel {
   /**
    * Instantiate a new Variables Panel.
    *
    * @param options The instantiation options for a Variables Panel.
    */
   constructor(options: Variables.IOptions) {
-    super();
+    super(options);
 
     const {
       model,
       service,
       commands,
-      themeManager,
-      updateWidgetPosition
+      themeManager
     } = options;
     const translator = options.translator || nullTranslator;
     const trans = translator.load('jupyterlab');
-    this._updateWidgetPosition = updateWidgetPosition;
+
     this._header = new VariablesHeader(translator);
     this._tree = new VariablesBodyTree({ model, service });
     this._table = new VariablesBodyGrid({ model, commands, themeManager });
@@ -105,7 +106,7 @@ export class Variables extends Panel {
 
     this._header.toolbar.addItem('view-VariableTableView', tableViewButton);
 
-    this._header.titleWidget.node.onclick = this._toggleWidgetHeight;
+    this._header.attachOnClickListener(this._toggleWidgetHeight)
 
     this.addWidget(this._header);
     this.addWidget(this._tree);
@@ -137,35 +138,9 @@ export class Variables extends Panel {
    * @param msg The resize message.
    */
   private _resizeBody(msg: Widget.ResizeMessage): void {
-    this._requestParentResize(msg);
     const height = msg.height - this._header.node.offsetHeight;
     this._tree.node.style.height = `${height}px`;
   }
-
-  /**
-   * Invoke parent's handler to recompute height of all
-   * widgets.
-   *
-   * @param msg The resize message.
-   */
-  private _requestParentResize(msg: Widget.ResizeMessage): void {
-    if (msg.height < 24 && this._updateWidgetPosition) {
-      this._updateWidgetPosition();
-    }
-  }
-
-  /**
-   * Invoke parent's handler to expand or contract this widget.
-   *
-   * @param msg The resize message.
-   */
-  private _toggleWidgetHeight = () => {
-    if (this._updateWidgetPosition) {
-      this._updateWidgetPosition(this);
-    }
-  };
-
-  private _updateWidgetPosition: ((widget?: Panel) => void) | undefined;
 
   private _header: VariablesHeader;
   private _tree: VariablesBodyTree;
@@ -204,7 +179,7 @@ export namespace Variables {
   /**
    * Instantiation options for `Variables`.
    */
-  export interface IOptions extends Panel.IOptions {
+  export interface IOptions extends BaseDebuggerPanel.IOptions {
     /**
      * The variables model.
      */
@@ -227,7 +202,5 @@ export namespace Variables {
      * The application language translator
      */
     translator?: ITranslator;
-
-    updateWidgetPosition?: () => void;
   }
 }

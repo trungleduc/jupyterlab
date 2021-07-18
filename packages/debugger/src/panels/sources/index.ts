@@ -12,7 +12,7 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 import { viewBreakpointIcon } from '../../icons';
 
 import { IDebugger } from '../../tokens';
-import { BasePanel } from '../basepanel';
+import { BaseDebuggerPanel } from '../basedebuggerpanel';
 
 import { SourcesBody } from './body';
 
@@ -21,7 +21,7 @@ import { SourcesHeader } from './header';
 /**
  * A Panel that shows a preview of the source code while debugging.
  */
-export class Sources extends BasePanel {
+export class Sources extends BaseDebuggerPanel {
   /**
    * Instantiate a new Sources preview Panel.
    *
@@ -48,8 +48,9 @@ export class Sources extends BasePanel {
         tooltip: trans.__('Open in the Main Area')
       })
     );
+    
+    header.attachOnClickListener(this._toggleWidgetHeight)
 
-    header.titleWidget.node.onclick = this._toggleWidgetHeight
     this.addWidget(header);
     this.addWidget(body);
   }
@@ -63,7 +64,7 @@ export namespace Sources {
   /**
    * The options used to create a Sources.
    */
-  export interface IOptions extends BasePanel.IOptions {
+  export interface IOptions extends BaseDebuggerPanel.IOptions {
     /**
      * The debugger service.
      */

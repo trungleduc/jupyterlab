@@ -152,7 +152,7 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
 
       const layout = this._body.layout as SplitLayout;
       const widgetHeights = this._body.widgets.map(w => getWidgetHeight(w));
-      const totalHeight = widgetHeights.reduce((pv, cv) => pv + cv, 0)
+      const totalHeight = widgetHeights.reduce((pv, cv) => pv + cv, 0);
       
       const widgetId =  this._body.widgets.indexOf(widget);
       if(widgetId === -1) return; //Bail early
