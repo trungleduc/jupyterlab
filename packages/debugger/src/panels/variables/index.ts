@@ -106,7 +106,7 @@ export class Variables extends BaseDebuggerPanel {
 
     this._header.toolbar.addItem('view-VariableTableView', tableViewButton);
 
-    this._header.attachOnClickListener(this._toggleWidgetHeight)
+    this._header.attachOnClickListener(this._toggleWidgetHeight);
 
     this.addWidget(this._header);
     this.addWidget(this._tree);

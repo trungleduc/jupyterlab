@@ -3,12 +3,15 @@
 
 import { Toolbar } from '@jupyterlab/apputils';
 
-import { ITranslator, nullTranslator, TranslationBundle } from '@jupyterlab/translation';
+import {
+  ITranslator,
+  nullTranslator,
+  TranslationBundle
+} from '@jupyterlab/translation';
 
 import { PanelLayout, Widget } from '@lumino/widgets';
 
 import { caretDownEmptyIcon } from '@jupyterlab/ui-components';
-
 
 /**
  * The base header for a debugger panels.
@@ -38,18 +41,31 @@ export class PanelHeader extends Widget {
     this._paddingDiv.node.style.height = '100%';
 
     this.layout = new PanelLayout();
+    this.toolbar = new Toolbar();
+
     this.layout.addWidget(this._expandIcon);
     this.layout.addWidget(this.titleWidget);
     this.layout.addWidget(this.toolbar);
     this.layout.addWidget(this._paddingDiv);
   }
 
-  public attachOnClickListener = (f: ()=>void): void => {
+  /**
+   * Helper function to attach callback to multiple
+   * elements of header
+   *
+   * @param f - callback to attack to elements.
+   */
+  public attachOnClickListener = (f: () => void): void => {
     this._expandIcon.node.onclick = f;
     this.titleWidget.node.onclick = f;
     this._paddingDiv.node.onclick = f;
   };
 
+  /**
+   *  Toggler for expanding/contracting icon of header
+   *
+   * @param angle - angle of rotation of icon
+   */
   public toggleIcon = (angle: 0 | -90): void => {
     if (angle !== this._iconAngle) {
       this._iconElement.classList.remove(
@@ -65,27 +81,56 @@ export class PanelHeader extends Widget {
     }
   };
 
+  /**
+   * Angle and expanding / contracting icon.
+   */
   private _iconAngle: number;
 
+  /**
+   * HTML element which hold the `caretDownEmptyIcon` icon.
+   */
   private _iconElement: HTMLElement;
 
+  /**
+   * Expanding / contracting icon widget.
+   */
   private _expandIcon: Widget;
-  
+
+  /**
+   * A widget that stretch all remaining width of header.
+   * It is used to receive click event.
+   */
   private _paddingDiv: Widget;
-  
+
+  /**
+   * The translation service.
+   */
   protected _trans: TranslationBundle;
-  
+
+  /**
+   * Class name used to rotate `caretDownEmptyIcon` icon.
+   */
   static readonly ICON_EXPANDING_CLASS =
-  'jp-DebuggerSidebar-panel-header-IconExpanding';
+    'jp-DebuggerSidebar-panel-header-IconExpanding';
+
+  /**
+   * Class name used to rotate `caretDownEmptyIcon` icon.
+   */
   static readonly ICON_CONTRACTING_CLASS =
-  'jp-DebuggerSidebar-panel-header-IconContracting';
-  
+    'jp-DebuggerSidebar-panel-header-IconContracting';
+
+  /**
+   * The title of header.
+   */
   readonly titleWidget: Widget;
 
+  /**
+   * The layout of header.
+   */
   readonly layout: PanelLayout;
 
   /**
-   * The toolbar for the breakpoints header.
+   * The toolbar for the header.
    */
-  readonly toolbar = new Toolbar();
+  readonly toolbar: Toolbar;
 }

@@ -95,121 +95,70 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
   }
 
   /**
-
+   * Panel resize and toggle handler creator, this function returns a
+   * handler which is called by child panel to inform parent to 
+   * re-compute the height of all its children.
    * 
    * #### Notes
    * `correctWidgetHeight` function is called on every `resize` event of 
    * children widgets so 'debouncing' is needed to prevent
    * multiple function calls.  
    */
-  private _updateWidgetPosition = () => {
+  private _updateWidgetPosition = (): ((widget?: Panel) => void) => {
     let timeOut: number;
-    const MIN_HEIGHT = 25
-    const savedHeight = new WeakMap<Widget, number>(); 
+    const MIN_HEIGHT = 25;
+    const savedHeight = new WeakMap<Widget, number>();
 
-    const getWidgetHeight = (widget: Widget) => parseInt(widget.node.style.height.replace('px', ''))
-    
+    const getWidgetHeight = (widget: Widget) =>
+      parseInt(widget.node.style.height.replace('px', ''));
+
     /**
-     * Update height of all children widgets to keep the 
+     * Update height of all children panels to keep the
      * minimum height of each is at least MIN_HEIGHT.
      */
-    const correctWidgetHeight = () => {        
-      let totalHeight = 0;
-      if (this._body.layout) {
-        const layout = this._body.layout as SplitLayout;
-        const widgetHeights = layout.relativeSizes();
-        layout.handles.forEach((_, idx) => {
-          const widget = layout.widgets[idx];
-          const currentHeight = getWidgetHeight(widget);
-          widgetHeights[idx] = currentHeight;
-          totalHeight += currentHeight;
-        });
-        const totalElements = widgetHeights.length;
-        for (let index = 0; index < totalElements - 1; index++) {
-          const element = widgetHeights[index];
-          if (element < MIN_HEIGHT) {
-            widgetHeights[index + 1] =
-              widgetHeights[index + 1] - MIN_HEIGHT + widgetHeights[index];
-            widgetHeights[index] = MIN_HEIGHT;
-          }
-        }
-        if (widgetHeights[totalElements - 1] < MIN_HEIGHT) {
-          for (let index = totalElements - 2; index >= 0; index--) {
-            if (widgetHeights[index] > 2*MIN_HEIGHT) {
-              widgetHeights[index] =
-                widgetHeights[index] - MIN_HEIGHT + widgetHeights[totalElements - 1];
-              widgetHeights[totalElements - 1] = MIN_HEIGHT;
-              break;
-            }
-          }
-        }
-        const neWSize = widgetHeights.map(ele => ele / totalHeight);
-        layout.setRelativeSizes(neWSize);
-      }
-    }
-
-    const toggleWidget = (widget: Panel) => {
-
+    const correctWidgetHeight = (): void => {
       const layout = this._body.layout as SplitLayout;
       const widgetHeights = this._body.widgets.map(w => getWidgetHeight(w));
-      const totalHeight = widgetHeights.reduce((pv, cv) => pv + cv, 0);
-      
-      const widgetId =  this._body.widgets.indexOf(widget);
-      if(widgetId === -1) return; //Bail early
-      
-      const currentHeight = widgetHeights[widgetId];
-      let offsetId: number;
-      if (widgetId < widgetHeights.length - 1) {
-        offsetId = 1
-      } else {
-        offsetId = -1      
-      }
+      const heightRatio = Private.computePanelHeightOnResize(
+        widgetHeights,
+        MIN_HEIGHT
+      );
+      layout.setRelativeSizes(heightRatio);
+    };
 
-      let nextId = widgetId + offsetId;
-      
-      if(currentHeight > 25 ){
-        savedHeight.set(widget, currentHeight)
-        while (widgetHeights[nextId]) {
-          if (widgetHeights[nextId] <= 25 && nextId > 0 && nextId < widgetHeights.length - 1 ) {
-              widgetHeights[nextId] = 25;
-              nextId += offsetId;
-          } else {
-            widgetHeights[nextId] = widgetHeights[nextId] + currentHeight - 25
-            break;
-          }
-        }
-        widgetHeights[widgetId] = 25;
-      } else {
-        const lastHeight = savedHeight.get(widget)
-        while (widgetHeights[nextId]) {
-          if (widgetHeights[nextId] <= 25) {
-            widgetHeights[nextId] = 25;
-            nextId += offsetId;
-          } else if (lastHeight && widgetHeights[nextId] > lastHeight) {
-            widgetHeights[nextId] = widgetHeights[nextId] + widgetHeights[widgetId] - lastHeight;
-            widgetHeights[widgetId] = lastHeight;
-            break;
-          } else {
-            widgetHeights[widgetId] = widgetHeights[nextId] + widgetHeights[widgetId] - 25;              
-            widgetHeights[nextId] = 25;
-            break;
-          }
-        }          
+    /**
+     * Update height of all children panels to expand of 
+     * contract the selected panel.
+     * 
+     * @param widget - the panel to be expanded of contracted
+     */
+    const toggleWidgetHeight = (widget: Panel): void => {
+      const layout = this._body.layout as SplitLayout;
+      const widgetHeights = this._body.widgets.map(w => getWidgetHeight(w));
+      const lastHeight = savedHeight.get(widget);
+      const widgetId = this._body.widgets.indexOf(widget);
+      if (widgetId === -1) return; //Bail early
+
+      const { heightRatio, heightToSave } = Private.computePanelHeightOnToggle(
+        widgetHeights,
+        widgetId,
+        lastHeight,
+        MIN_HEIGHT
+      );
+      if (heightToSave) {
+        savedHeight.set(widget, heightToSave);
       }
-      const neWSize = widgetHeights.map(ele => ele / totalHeight);
-      layout.setRelativeSizes(neWSize);
-      
-    }
+      layout.setRelativeSizes(heightRatio);
+    };
     return (widget?: Panel) => {
-      if(widget){
-        toggleWidget(widget);
+      if (widget) {
+        toggleWidgetHeight(widget);
       } else {
         clearTimeout(timeOut);
         timeOut = setTimeout(correctWidgetHeight, 500);
       }
-    }
-  }
-
+    };
+  };
 
   /**
    * Add an item at the end of the sidebar.
@@ -285,7 +234,6 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
    * Container for debugger panels.
    */
   private _body: SplitPanel;
-
 }
 
 /**
@@ -355,5 +303,104 @@ namespace Private {
     header.appendChild(title);
 
     return header;
+  }
+
+  /**
+   * Compute the height ratio of all panels in order to expand
+   * for contract a selected panel.
+   *
+   * @param widgetHeights - array of all widgets height.
+   * @param  widgetId - index of selected widget.
+   * @param  lastHeight - height of widget before contracted
+   * @param  minHeight - minimum height of a panel.
+   * @return The new height ration of panels and last height of
+   * selected widget.
+   */
+  export function computePanelHeightOnToggle(
+    widgetHeights: Array<number>,
+    widgetId: number,
+    lastHeight: number | undefined,
+    minHeight: number
+  ): {heightRatio: Array<number>, heightToSave: number| undefined } {
+    const totalHeight = widgetHeights.reduce((pv, cv) => pv + cv, 0);
+    let heightToSave = undefined;
+    
+    const currentHeight = widgetHeights[widgetId];
+    let offsetId: number;
+    if (widgetId < widgetHeights.length - 1) {
+      offsetId = 1
+    } else {
+      offsetId = -1      
+    }
+
+    let nextId = widgetId + offsetId;
+    
+    if(currentHeight > minHeight ){
+      heightToSave = currentHeight
+      while (widgetHeights[nextId]) {
+        if (widgetHeights[nextId] <= minHeight && nextId > 0 && nextId < widgetHeights.length - 1 ) {
+            widgetHeights[nextId] = minHeight;
+            nextId += offsetId;
+        } else {
+          widgetHeights[nextId] = widgetHeights[nextId] + currentHeight - minHeight
+          break;
+        }
+      }
+      widgetHeights[widgetId] = minHeight;
+    } else {
+      while (widgetHeights[nextId]) {
+        if (widgetHeights[nextId] <= minHeight) {
+          widgetHeights[nextId] = minHeight;
+          nextId += offsetId;
+        } else {
+          const heightOfTwoWidget = widgetHeights[nextId] + widgetHeights[widgetId]
+          if (lastHeight && widgetHeights[nextId] > lastHeight) {
+            widgetHeights[nextId] = heightOfTwoWidget - lastHeight;
+            widgetHeights[widgetId] = lastHeight;
+          } else {
+            widgetHeights[widgetId] = heightOfTwoWidget - minHeight;              
+            widgetHeights[nextId] = minHeight;
+          }
+          break;
+        }
+      }          
+    }
+    return {heightRatio: widgetHeights.map(ele => ele / totalHeight), heightToSave};
+  }
+
+  /**
+   * Compute the height ratio of all panels in order to keep
+   * the height of each is at least `minHeight`.
+   *
+   * @param widgetHeights - array of all widgets height.
+   * @param  minHeight - minimum height of a panel.
+   * @return The new height ration of panels
+   */
+  export function computePanelHeightOnResize(
+    widgetHeights: Array<number>,
+    minHeight: number
+  ): Array<number> {
+    const totalHeight = widgetHeights.reduce((pv, cv) => pv + cv, 0);
+    const totalElements = widgetHeights.length;
+
+    for (let index = 0; index < totalElements - 1; index++) {
+      const element = widgetHeights[index];
+      if (element < minHeight) {
+        widgetHeights[index + 1] =
+          widgetHeights[index + 1] - minHeight + widgetHeights[index];
+        widgetHeights[index] = minHeight;
+      }
+    }
+    if (widgetHeights[totalElements - 1] < minHeight) {
+      for (let index = totalElements - 2; index >= 0; index--) {
+        if (widgetHeights[index] > 2 * minHeight) {
+          widgetHeights[index] =
+            widgetHeights[index] - minHeight + widgetHeights[totalElements - 1];
+          widgetHeights[totalElements - 1] = minHeight;
+          break;
+        }
+      }
+    }
+    return widgetHeights.map(ele => ele / totalHeight);
   }
 }

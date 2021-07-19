@@ -49,7 +49,7 @@ export class Sources extends BaseDebuggerPanel {
       })
     );
     
-    header.attachOnClickListener(this._toggleWidgetHeight)
+    header.attachOnClickListener(this._toggleWidgetHeight);
 
     this.addWidget(header);
     this.addWidget(body);

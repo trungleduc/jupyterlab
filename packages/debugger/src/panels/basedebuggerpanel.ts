@@ -3,7 +3,7 @@
 
 import { Panel, Widget } from '@lumino/widgets';
 
-import {  PanelHeader } from './header';
+import { PanelHeader } from './header';
 
 /**
  * A base class for panels of debugger.
@@ -28,8 +28,8 @@ export class BaseDebuggerPanel extends Panel {
   protected onResize(msg: Widget.ResizeMessage): void {
     super.onResize(msg);
     this._requestParentResize(msg);
-    const header = this.widgets[0] as PanelHeader
-    if(msg.height > 26){
+    const header = this.widgets[0] as PanelHeader;
+    if (msg.height > 26) {
       header.toggleIcon(-90);
     } else {
       header.toggleIcon(0);
@@ -38,7 +38,7 @@ export class BaseDebuggerPanel extends Panel {
 
   /**
    * Invoke parent's handler to recompute height of all
-   * widgets.
+   * panels.
    *
    * @param msg The resize message.
    */
@@ -48,18 +48,20 @@ export class BaseDebuggerPanel extends Panel {
     }
   }
   /**
-   * Invoke parent's handler to expand or contract this widget.
+   * Invoke parent's handler to expand or contract this panel.
    *
-   * @param msg The resize message.
    */
-   protected _toggleWidgetHeight = (): void => {
+  protected _toggleWidgetHeight = (): void => {
     if (this._updateWidgetPosition) {
-      this._updateWidgetPosition(this);      
+      this._updateWidgetPosition(this);
     }
-  }
+  };
 
+  /**
+   * Panel resize handler received from parent.
+   *
+   */
   private _updateWidgetPosition: ((widget?: Panel) => void) | undefined;
-
 }
 
 /**
@@ -70,8 +72,9 @@ export namespace BaseDebuggerPanel {
    * Instantiation options for `Breakpoints`.
    */
   export interface IOptions extends Panel.IOptions {
-
-    updateWidgetPosition?: () => void; 
-
+    /**
+     * Panel resize handler.
+     */
+    updateWidgetPosition?: (widget?: Panel) => void;
   }
 }

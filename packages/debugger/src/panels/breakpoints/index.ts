@@ -59,7 +59,7 @@ export class Breakpoints extends BaseDebuggerPanel {
         tooltip: trans.__('Remove All Breakpoints')
       })
     );
-    header.attachOnClickListener(this._toggleWidgetHeight)
+    header.attachOnClickListener(this._toggleWidgetHeight);
 
     this.addWidget(header);
     this.addWidget(body);

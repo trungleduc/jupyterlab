@@ -79,10 +79,8 @@ export class Callstack extends BaseDebuggerPanel {
       })
     );
 
-    header.attachOnClickListener(this._toggleWidgetHeight)
+    header.attachOnClickListener(this._toggleWidgetHeight);
     
-    //paddingDiv.node.onclick = this._toggleWidgetHeight;
-
     this.addWidget(header);
     this.addWidget(body);
   
