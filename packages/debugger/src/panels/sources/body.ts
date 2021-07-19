@@ -11,7 +11,7 @@ import { Signal } from '@lumino/signaling';
 
 import { PanelLayout, Widget } from '@lumino/widgets';
 
-import { Debugger } from '../..';
+import { ReadOnlyEditorFactory } from '../../factory';
 
 import { EditorHandler } from '../../handlers/editor';
 
@@ -32,7 +32,7 @@ export class SourcesBody extends Widget {
     this._debuggerService = options.service;
     this._mimeTypeService = options.editorServices.mimeTypeService;
 
-    const factory = new Debugger.ReadOnlyEditorFactory({
+    const factory = new ReadOnlyEditorFactory({
       editorServices: options.editorServices
     });
 

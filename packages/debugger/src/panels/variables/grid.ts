@@ -18,7 +18,7 @@ import { ISignal, Signal } from '@lumino/signaling';
 
 import { Panel } from '@lumino/widgets';
 
-import { Debugger } from '../../';
+import { DebuggerCommandIDs } from '../../commands';
 
 import { IDebugger } from '../../tokens';
 
@@ -124,7 +124,7 @@ class Grid extends Panel {
     const grid = new DataGrid();
     const mouseHandler = new Private.MouseHandler();
     mouseHandler.doubleClicked.connect((_, hit) =>
-      commands.execute(Debugger.CommandIDs.inspectVariable, {
+      commands.execute(DebuggerCommandIDs.inspectVariable, {
         variableReference: dataModel.getVariableReference(hit.row),
         title: dataModel.getVariableName(hit.row)
       })

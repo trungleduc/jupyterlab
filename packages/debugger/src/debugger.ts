@@ -5,7 +5,9 @@ import { codeIcon, runIcon, stopIcon } from '@jupyterlab/ui-components';
 
 import { EditorHandler as DebuggerEditorHandler } from './handlers/editor';
 
-import { DebuggerConfig } from './config';
+import { DebuggerCommandIDs } from './commands';
+
+import {  DebuggerConfig } from './config';
 
 import { DebuggerEvaluateDialog } from './dialogs/evaluate';
 
@@ -92,19 +94,20 @@ export namespace Debugger {
    * The command IDs used by the debugger plugin.
    */
   export namespace CommandIDs {
-    export const debugContinue = 'debugger:continue';
+    
+    export const debugContinue = DebuggerCommandIDs.debugContinue;
 
-    export const terminate = 'debugger:terminate';
+    export const terminate = DebuggerCommandIDs.terminate;
 
-    export const next = 'debugger:next';
+    export const next = DebuggerCommandIDs.next;
 
-    export const stepIn = 'debugger:stepIn';
+    export const stepIn = DebuggerCommandIDs.stepIn;
 
-    export const stepOut = 'debugger:stepOut';
+    export const stepOut = DebuggerCommandIDs.stepOut;
 
-    export const inspectVariable = 'debugger:inspect-variable';
+    export const inspectVariable = DebuggerCommandIDs.inspectVariable;
 
-    export const evaluate = 'debugger:evaluate';
+    export const evaluate = DebuggerCommandIDs.evaluate;
   }
 
   /**
