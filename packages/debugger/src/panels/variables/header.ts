@@ -12,9 +12,7 @@ export class VariablesHeader extends PanelHeader {
    * Instantiate a new VariablesHeader.
    */
   constructor(translator?: ITranslator) {
-    super(translator)
+    super(translator);
     this.titleWidget.node.textContent = this._trans.__('Variables');
-
   }
-
 }

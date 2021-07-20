@@ -12,8 +12,7 @@ export class CallstackHeader extends PanelHeader {
    * Instantiate a new CallstackHeader.
    */
   constructor(translator?: ITranslator) {
-    super(translator)
+    super(translator);
     this.titleWidget.node.textContent = this._trans.__('Callstack');
   }
-
 }

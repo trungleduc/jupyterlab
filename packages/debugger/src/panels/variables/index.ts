@@ -35,12 +35,7 @@ export class Variables extends BaseDebuggerPanel {
   constructor(options: Variables.IOptions) {
     super(options);
 
-    const {
-      model,
-      service,
-      commands,
-      themeManager
-    } = options;
+    const { model, service, commands, themeManager } = options;
     const translator = options.translator || nullTranslator;
     const trans = translator.load('jupyterlab');
 

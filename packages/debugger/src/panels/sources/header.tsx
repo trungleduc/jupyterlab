@@ -27,10 +27,9 @@ export class SourcesHeader extends PanelHeader {
     const sourcePath = ReactWidget.create(
       <SourcePathComponent model={model} />
     );
-    this.layout.insertWidget(3,sourcePath);
+    this.layout.insertWidget(3, sourcePath);
     this.addClass('jp-DebuggerSources-header');
   }
-
 }
 
 /**

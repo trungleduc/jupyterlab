@@ -7,7 +7,7 @@ import { EditorHandler as DebuggerEditorHandler } from './handlers/editor';
 
 import { DebuggerCommandIDs } from './commands';
 
-import {  DebuggerConfig } from './config';
+import { DebuggerConfig } from './config';
 
 import { DebuggerEvaluateDialog } from './dialogs/evaluate';
 
@@ -94,7 +94,6 @@ export namespace Debugger {
    * The command IDs used by the debugger plugin.
    */
   export namespace CommandIDs {
-    
     export const debugContinue = DebuggerCommandIDs.debugContinue;
 
     export const terminate = DebuggerCommandIDs.terminate;

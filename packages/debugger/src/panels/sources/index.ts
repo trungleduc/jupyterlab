@@ -33,7 +33,6 @@ export class Sources extends BaseDebuggerPanel {
     const translator = options.translator || nullTranslator;
     const trans = translator.load('jupyterlab');
 
-
     const header = new SourcesHeader(model, translator);
     const body = new SourcesBody({
       service,
@@ -48,13 +47,12 @@ export class Sources extends BaseDebuggerPanel {
         tooltip: trans.__('Open in the Main Area')
       })
     );
-    
+
     header.attachOnClickListener(this._toggleWidgetHeight);
 
     this.addWidget(header);
     this.addWidget(body);
   }
-
 }
 
 /**
@@ -84,6 +82,5 @@ export namespace Sources {
      * The application language translator
      */
     translator?: ITranslator;
-
   }
 }

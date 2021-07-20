@@ -80,10 +80,9 @@ export class Callstack extends BaseDebuggerPanel {
     );
 
     header.attachOnClickListener(this._toggleWidgetHeight);
-    
+
     this.addWidget(header);
     this.addWidget(body);
-  
 
     this.addClass('jp-DebuggerCallstack');
   }
@@ -151,6 +150,5 @@ export namespace Callstack {
      * The application language translator
      */
     translator?: ITranslator;
-
   }
 }
