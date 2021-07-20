@@ -263,7 +263,7 @@ describe('Debugger', () => {
     it('should display the source path in the header', () => {
       const body = sidebar.sources.widgets[0] as SourcesHeader;
       const children = toArray(body.children());
-      const sourcePath = children[2].node.querySelector('span');
+      const sourcePath = children[3].node.querySelector('span');
       expect(sourcePath!.innerHTML).toEqual(path);
     });
 
