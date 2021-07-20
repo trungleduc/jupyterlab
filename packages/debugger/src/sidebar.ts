@@ -9,7 +9,7 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 
 import { bugIcon } from '@jupyterlab/ui-components';
 
-import { Panel, SplitLayout, SplitPanel , Widget  } from '@lumino/widgets';
+import { Panel, SplitLayout, SplitPanel, Widget } from '@lumino/widgets';
 
 import { Breakpoints as BreakpointsPanel } from './panels/breakpoints';
 
@@ -96,16 +96,16 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
 
   /**
    * Panel resize and toggle handler creator, this function returns a
-   * handler which is called by child panel to inform parent to 
+   * handler which is called by child panel to inform parent to
    * re-compute the height of all its children.
-   * 
+   *
    * #### Notes
-   * `correctWidgetHeight` function is called on every `resize` event of 
+   * `correctWidgetHeight` function is called on every `resize` event of
    * children widgets so 'debouncing' is needed to prevent
-   * multiple function calls.  
+   * multiple function calls.
    */
   private _updateWidgetPosition = (): ((widget?: Panel) => void) => {
-    let timeOut: number;
+    let timeOut: ReturnType<typeof setTimeout>;
     const MIN_HEIGHT = 25;
     const savedHeight = new WeakMap<Widget, number>();
 
@@ -119,7 +119,7 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
     const correctWidgetHeight = (): void => {
       const layout = this._body.layout as SplitLayout;
       const widgetHeights = this._body.widgets.map(w => getWidgetHeight(w));
-      const heightRatio = Private.computePanelHeightOnResize(
+      const heightRatio = DebuggerSidebar.computePanelHeightOnResize(
         widgetHeights,
         MIN_HEIGHT
       );
@@ -127,9 +127,9 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
     };
 
     /**
-     * Update height of all children panels to expand of 
+     * Update height of all children panels to expand of
      * contract the selected panel.
-     * 
+     *
      * @param widget - the panel to be expanded of contracted
      */
     const toggleWidgetHeight = (widget: Panel): void => {
@@ -139,7 +139,10 @@ export class DebuggerSidebar extends Panel implements IDebugger.ISidebar {
       const widgetId = this._body.widgets.indexOf(widget);
       if (widgetId === -1) return; //Bail early
 
-      const { heightRatio, heightToSave } = Private.computePanelHeightOnToggle(
+      const {
+        heightRatio,
+        heightToSave
+      } = DebuggerSidebar.computePanelHeightOnToggle(
         widgetHeights,
         widgetId,
         lastHeight,
@@ -283,27 +286,6 @@ export namespace DebuggerSidebar {
       });
     }
   }
-}
-
-/**
- * A namespace for private module data.
- */
-namespace Private {
-  /**
-   * Create a sidebar header node.
-   */
-  export function createHeader(): HTMLElement {
-    const header = document.createElement('div');
-    header.classList.add('jp-stack-panel-header');
-
-    const title = document.createElement('h2');
-
-    title.textContent = '-';
-    title.classList.add('jp-left-truncated');
-    header.appendChild(title);
-
-    return header;
-  }
 
   /**
    * Compute the height ratio of all panels in order to expand
@@ -321,51 +303,72 @@ namespace Private {
     widgetId: number,
     lastHeight: number | undefined,
     minHeight: number
-  ): {heightRatio: Array<number>, heightToSave: number| undefined } {
+  ): { heightRatio: Array<number>; heightToSave: number | undefined } {
     const totalHeight = widgetHeights.reduce((pv, cv) => pv + cv, 0);
     let heightToSave = undefined;
-    
+
     const currentHeight = widgetHeights[widgetId];
     let offsetId: number;
     if (widgetId < widgetHeights.length - 1) {
-      offsetId = 1
+      offsetId = 1;
     } else {
-      offsetId = -1      
+      offsetId = -1;
     }
 
-    let nextId = widgetId + offsetId;
-    
-    if(currentHeight > minHeight ){
-      heightToSave = currentHeight
-      while (widgetHeights[nextId]) {
-        if (widgetHeights[nextId] <= minHeight && nextId > 0 && nextId < widgetHeights.length - 1 ) {
+    if (currentHeight > minHeight) {
+      const contractPanel = (startId: number, offset: number) => {
+        let nextId = startId + offset;
+        heightToSave = currentHeight;
+        while (widgetHeights[nextId]) {
+          if (
+            widgetHeights[nextId] <= minHeight &&
+            nextId > 0 &&
+            nextId < widgetHeights.length - 1
+          ) {
             widgetHeights[nextId] = minHeight;
-            nextId += offsetId;
-        } else {
-          widgetHeights[nextId] = widgetHeights[nextId] + currentHeight - minHeight
-          break;
-        }
-      }
-      widgetHeights[widgetId] = minHeight;
-    } else {
-      while (widgetHeights[nextId]) {
-        if (widgetHeights[nextId] <= minHeight) {
-          widgetHeights[nextId] = minHeight;
-          nextId += offsetId;
-        } else {
-          const heightOfTwoWidget = widgetHeights[nextId] + widgetHeights[widgetId]
-          if (lastHeight && widgetHeights[nextId] > lastHeight) {
-            widgetHeights[nextId] = heightOfTwoWidget - lastHeight;
-            widgetHeights[widgetId] = lastHeight;
+            nextId += offset;
           } else {
-            widgetHeights[widgetId] = heightOfTwoWidget - minHeight;              
-            widgetHeights[nextId] = minHeight;
+            widgetHeights[nextId] =
+              widgetHeights[nextId] + currentHeight - minHeight;
+            break;
           }
-          break;
         }
-      }          
+        widgetHeights[widgetId] = minHeight;
+      };
+
+      contractPanel(widgetId, offsetId);
+    } else {
+      const expandPanel = (startId: number, offset: number) => {
+        let nextId = startId + offset;
+        let updatedHeight = false;
+        while (widgetHeights[nextId]) {
+          if (widgetHeights[nextId] <= minHeight) {
+            widgetHeights[nextId] = minHeight;
+            nextId += offset;
+          } else {
+            const heightOfTwoWidget =
+              widgetHeights[nextId] + widgetHeights[widgetId];
+            if (lastHeight && widgetHeights[nextId] > lastHeight) {
+              widgetHeights[nextId] = heightOfTwoWidget - lastHeight;
+              widgetHeights[widgetId] = lastHeight;
+            } else {
+              widgetHeights[widgetId] = heightOfTwoWidget - minHeight;
+              widgetHeights[nextId] = minHeight;
+            }
+            updatedHeight = true;
+            break;
+          }
+        }
+        return updatedHeight;
+      };
+      if (!expandPanel(widgetId, offsetId)) {
+        expandPanel(widgetId, -offsetId);
+      }
     }
-    return {heightRatio: widgetHeights.map(ele => ele / totalHeight), heightToSave};
+    return {
+      heightRatio: widgetHeights.map(ele => ele / totalHeight),
+      heightToSave
+    };
   }
 
   /**
@@ -402,5 +405,26 @@ namespace Private {
       }
     }
     return widgetHeights.map(ele => ele / totalHeight);
+  }
+}
+
+/**
+ * A namespace for private module data.
+ */
+namespace Private {
+  /**
+   * Create a sidebar header node.
+   */
+  export function createHeader(): HTMLElement {
+    const header = document.createElement('div');
+    header.classList.add('jp-stack-panel-header');
+
+    const title = document.createElement('h2');
+
+    title.textContent = '-';
+    title.classList.add('jp-left-truncated');
+    header.appendChild(title);
+
+    return header;
   }
 }
