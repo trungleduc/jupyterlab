@@ -25,7 +25,10 @@ export class CompletionProviderManager implements ICompletionProviderManager {
   }): ConnectorProxy {
     let map: ConnectorProxy.IConnectorMap = new Map();
     this._activeProviders.forEach(id => {
-      map.set(id, this._providers.get(id)!.provider.connectorFactory(options));
+      const provider = this._providers.get(id);
+      if (provider) {
+        map.set(id, provider.connectorFactory(options));
+      }
     });
     return new ConnectorProxy(map);
   }
@@ -37,13 +40,11 @@ export class CompletionProviderManager implements ICompletionProviderManager {
         `Completion service with identifier ${identifier} is already registered`
       );
     } else {
-      this._providers.set(identifier, {
-        provider
-      });
+      this._providers.set(identifier, provider);
     }
   }
 
-  getServices(): Map<string, ICompletionProviderManager.IRegisteredService> {
+  getProviders(): Map<string, ICompletionProvider> {
     return this._providers;
   }
 
@@ -57,29 +58,6 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     if (this._activeProviders.size === 0) {
       this._activeProviders.add(DEFAULT_PROVIDER_ID);
     }
-  }
-
-  generateHandler(
-    editor: CodeEditor.IEditor | null,
-    session: Session.ISessionConnection | null
-  ): CompletionHandler {
-    const firstProvider = [...this._activeProviders][0];
-    let renderer = this._providers.get(firstProvider)?.provider.renderer;
-    if (!renderer) {
-      renderer = Completer.defaultRenderer;
-    }
-    const model = new CompleterModel();
-    const completer = new Completer({ model, renderer });
-    completer.hide();
-    Widget.attach(completer, document.body);
-    const connectorManager = this.generateConnectorProxy({ session, editor });
-    const handler = new CompletionHandler({
-      completer,
-      connector: connectorManager
-    });
-    handler.editor = editor;
-
-    return handler;
   }
 
   attachConsole(consolePanel: ConsolePanel): void {
@@ -105,7 +83,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     anchor.sessionContext.sessionChanged.connect(updateConnector);
 
     this._panelHandlers.set(consolePanel.id, handler);
-    consolePanel.disposed.connect(old => this._panelHandlers.delete(old.id));
+    consolePanel.disposed.connect(old => {
+      this.disposeHandler(old.id, handler);
+    });
   }
 
   attachEditor(
@@ -157,6 +137,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
         delete this._activeSessions[widget.id];
         session.dispose();
       }
+      this.disposeHandler(widget.id, handler);
     });
 
     this._panelHandlers.set(widget.id, handler);
@@ -179,7 +160,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     panel.sessionContext.sessionChanged.connect(updateConnector);
 
     this._panelHandlers.set(panel.id, handler);
-    panel.disposed.connect(old => this._panelHandlers.delete(old.id));
+    panel.disposed.connect(old => {
+      this.disposeHandler(old.id, handler);
+    });
   }
 
   invoke(id: string): void {
@@ -196,10 +179,37 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     }
   }
 
-  private readonly _providers: Map<
-    string,
-    ICompletionProviderManager.IRegisteredService
-  >;
+  private disposeHandler(id: string, handler: CompletionHandler) {
+    handler.completer.model?.dispose();
+    handler.completer.dispose();
+    handler.dispose();
+    this._panelHandlers.delete(id);
+  }
+
+  private generateHandler(
+    editor: CodeEditor.IEditor | null,
+    session: Session.ISessionConnection | null
+  ): CompletionHandler {
+    const firstProvider = [...this._activeProviders][0];
+    let renderer = this._providers.get(firstProvider)?.renderer;
+    if (!renderer) {
+      renderer = Completer.defaultRenderer;
+    }
+    const model = new CompleterModel();
+    const completer = new Completer({ model, renderer });
+    completer.hide();
+    Widget.attach(completer, document.body);
+    const connectorManager = this.generateConnectorProxy({ session, editor });
+    const handler = new CompletionHandler({
+      completer,
+      connector: connectorManager
+    });
+    handler.editor = editor;
+
+    return handler;
+  }
+
+  private readonly _providers: Map<string, ICompletionProvider>;
   private _panelHandlers: Map<string, CompletionHandler>;
   private _activeSessions: {
     [id: string]: Session.ISessionConnection;

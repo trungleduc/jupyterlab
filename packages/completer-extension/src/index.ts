@@ -89,7 +89,7 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
 
     void Promise.all([settingsPromise, app.restored]).then(
       ([settingValues]) => {
-        const availableProviders = [...manager.getServices().keys()];
+        const availableProviders = [...manager.getProviders().keys()];
         void settingValues.set('availableProviders', availableProviders);
         updateSetting(settingValues.get('selectedProviders').composite);
 
@@ -196,8 +196,5 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
 /**
  * Export the plugins as default.
  */
-const plugins: JupyterFrontEndPlugin<any>[] = [
-  manager,
-  defaultProvider
-];
+const plugins: JupyterFrontEndPlugin<any>[] = [manager, defaultProvider];
 export default plugins;

@@ -29,12 +29,6 @@ export interface ICompletionProviderManager {
   registerProvider(provider: ICompletionProvider): void;
 }
 
-export namespace ICompletionProviderManager {
-  export interface IRegisteredService {
-    provider: ICompletionProvider;
-  }
-}
-
 export interface IConnectorProxy {
   fetch(
     request: CompletionHandler.IRequest

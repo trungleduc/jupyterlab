@@ -23,9 +23,6 @@
     },
     {
       "path": "../settingregistry"
-    },
-    {
-      "path": "../statedb"
     }
   ]
 }

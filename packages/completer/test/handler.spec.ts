@@ -8,6 +8,7 @@ import {
   Completer,
   CompleterModel,
   CompletionHandler,
+  ConnectorProxy,
   KernelConnector
 } from '@jupyterlab/completer';
 import { createSessionContext } from '@jupyterlab/testutils';
@@ -49,13 +50,16 @@ class TestCompletionHandler extends CompletionHandler {
 }
 
 describe('@jupyterlab/completer', () => {
-  let connector: KernelConnector;
+  let connector: ConnectorProxy;
   let sessionContext: ISessionContext;
 
   beforeAll(async () => {
     sessionContext = await createSessionContext();
     await (sessionContext as SessionContext).initialize();
-    connector = new KernelConnector({ session: sessionContext.session });
+
+    let map: ConnectorProxy.IConnectorMap = new Map();
+    map.set('testId', new KernelConnector({ session: sessionContext.session }));
+    connector = new ConnectorProxy(map);
   });
 
   afterAll(() => sessionContext.shutdown());
@@ -68,18 +72,6 @@ describe('@jupyterlab/completer', () => {
           completer: new Completer({ editor: null })
         });
         expect(handler).toBeInstanceOf(CompletionHandler);
-      });
-    });
-
-    describe('#connector', () => {
-      it('should be a data connector', () => {
-        const handler = new CompletionHandler({
-          connector,
-          completer: new Completer({ editor: null })
-        });
-        expect(handler.connector).toHaveProperty('fetch');
-        expect(handler.connector).toHaveProperty('remove');
-        expect(handler.connector).toHaveProperty('save');
       });
     });
 
@@ -301,7 +293,7 @@ describe('@jupyterlab/completer', () => {
           line,
           column: column + 6
         });
-        console.warn(editor.getCursorPosition());
+        // console.warn(editor.getCursorPosition());
         // Undo the completion, check its value and cursor position.
         editor.undo();
         expect(editor.model.value.text).toBe(text);
@@ -309,7 +301,7 @@ describe('@jupyterlab/completer', () => {
           line,
           column: column + 3
         });
-        console.warn(editor.getCursorPosition());
+        // console.warn(editor.getCursorPosition());
         // Redo the completion, check its value and cursor position.
         editor.redo();
         expect(editor.model.value.text).toBe(want);
@@ -317,7 +309,7 @@ describe('@jupyterlab/completer', () => {
           line,
           column: column + 6
         });
-        console.warn(editor.getCursorPosition());
+        // console.warn(editor.getCursorPosition());
       });
     });
 
