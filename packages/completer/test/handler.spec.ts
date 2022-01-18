@@ -8,8 +8,7 @@ import {
   Completer,
   CompleterModel,
   CompletionHandler,
-  ConnectorProxy,
-  KernelConnector
+  ConnectorProxy
 } from '@jupyterlab/completer';
 import { createSessionContext } from '@jupyterlab/testutils';
 
@@ -56,10 +55,7 @@ describe('@jupyterlab/completer', () => {
   beforeAll(async () => {
     sessionContext = await createSessionContext();
     await (sessionContext as SessionContext).initialize();
-
-    let map: ConnectorProxy.IConnectorMap = new Map();
-    map.set('testId', new KernelConnector({ session: sessionContext.session }));
-    connector = new ConnectorProxy(map);
+    connector = new ConnectorProxy(null as any, null as any, 0);
   });
 
   afterAll(() => sessionContext.shutdown());

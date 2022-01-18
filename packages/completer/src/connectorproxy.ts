@@ -45,7 +45,6 @@ export class ConnectorProxy implements IConnectorProxy {
       promise = Promise.race([promise, timeoutPromise]);
       promises.push(promise.catch(p => p));
     }
-
     const combinedPromise = Promise.all(promises);
     return combinedPromise;
   }

@@ -218,7 +218,6 @@ export class CompletionProviderManager implements ICompletionProviderManager {
 
     panel.content.activeCellChanged.connect(updateConnector);
     panel.sessionContext.sessionChanged.connect(updateConnector);
-
     this._panelHandlers.set(panel.id, handler);
     panel.disposed.connect(old => {
       this.disposeHandler(old.id, handler);

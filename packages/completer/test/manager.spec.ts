@@ -2,25 +2,22 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { ISessionContext, SessionContext } from '@jupyterlab/apputils';
-// import { CodeEditor, CodeEditorWrapper } from '@jupyterlab/codeeditor';
-// import { CodeMirrorEditor } from '@jupyterlab/codemirror';
 import {
-  CompletionConnector,
   CompletionHandler,
   CompletionProviderManager,
   ConnectorProxy,
-  DefaultCompletionProvider,
+  ContextCompleterProvider,
+  ICompletionContext,
   ICompletionProvider
 } from '@jupyterlab/completer';
 import { Context } from '@jupyterlab/docregistry';
 import { INotebookModel, NotebookModelFactory } from '@jupyterlab/notebook';
 import { ServiceManager } from '@jupyterlab/services';
 
-import { DataConnector } from '@jupyterlab/statedb';
 import { createSessionContext } from '@jupyterlab/testutils';
 import { NBTestUtils } from '@jupyterlab/testutils';
 
-const DEFAULT_PROVIDER_ID = 'CompletionProvider:base';
+const DEFAULT_PROVIDER_ID = 'CompletionProvider:context';
 const SAMPLE_PROVIDER_ID = 'CompletionProvider:sample';
 
 function contextFactory(): Context<INotebookModel> {
@@ -41,13 +38,12 @@ function contextFactory(): Context<INotebookModel> {
   });
   return context;
 }
-class FooConnector extends DataConnector<
-  CompletionHandler.ICompletionItemsReply,
-  void,
-  CompletionHandler.IRequest
-> {
+class FooCompletionProvider implements ICompletionProvider {
+  identifier: string = SAMPLE_PROVIDER_ID;
+  renderer = null;
   fetch(
-    request: CompletionHandler.IRequest
+    request: CompletionHandler.IRequest,
+    context: ICompletionContext
   ): Promise<CompletionHandler.ICompletionItemsReply> {
     return Promise.resolve({
       start: 3,
@@ -58,15 +54,9 @@ class FooConnector extends DataConnector<
       ]
     });
   }
-}
-class FooCompletionProvider implements ICompletionProvider {
-  connectorFactory(
-    options: CompletionConnector.IOptions
-  ): CompletionHandler.ICompletionItemsConnector {
-    return new FooConnector();
+  async isApplicable(context: ICompletionContext): Promise<boolean> {
+    return true;
   }
-  identifier = SAMPLE_PROVIDER_ID;
-  renderer = null;
 }
 
 describe('completer/manager', () => {
@@ -82,7 +72,8 @@ describe('completer/manager', () => {
 
   beforeEach(() => {
     manager = new CompletionProviderManager();
-    manager.registerProvider(new DefaultCompletionProvider());
+    manager.registerProvider(new ContextCompleterProvider());
+    manager.activateProvider(['CompletionProvider:context']);
   });
 
   describe('CompletionProviderManager', () => {
@@ -93,16 +84,13 @@ describe('completer/manager', () => {
     });
 
     describe('#generateConnectorProxy()', () => {
-      it('should create a ConnectorProxy', () => {
-        const connectorProxy = manager.generateConnectorProxy({
+      it('should create a ConnectorProxy', async () => {
+        const connectorProxy = await manager['generateConnectorProxy']({
           session: sessionContext.session,
           editor: null
         });
         expect(connectorProxy).toBeInstanceOf(ConnectorProxy);
-        expect(connectorProxy['_connectorMap'].size).toBe(1);
-        expect(connectorProxy['_connectorMap'].has(DEFAULT_PROVIDER_ID)).toBe(
-          true
-        );
+        expect(connectorProxy['_providers'].length).toBe(1);
       });
     });
 
@@ -142,22 +130,16 @@ describe('completer/manager', () => {
       it('should skip unavailble providers', () => {
         manager.registerProvider(new FooCompletionProvider());
         manager.activateProvider(['randomId']);
-        expect(manager['_activeProviders'].size).toBe(1);
+        expect(manager['_activeProviders'].size).toBe(2);
         expect(manager['_activeProviders'].has(DEFAULT_PROVIDER_ID)).toBe(true);
         expect(manager['_activeProviders'].has('randomId')).toBe(false);
       });
     });
 
     describe('#generateHandler()', () => {
-      it('should create a handler with connector proxy', () => {
-        const handler = manager['generateHandler'](
-          null,
-          sessionContext.session
-        );
+      it('should create a handler with connector proxy', async () => {
+        const handler = await manager['generateHandler']({});
         expect(handler).toBeInstanceOf(CompletionHandler);
-        expect((handler as CompletionHandler).connector).toBeInstanceOf(
-          ConnectorProxy
-        );
       });
     });
 
@@ -165,7 +147,7 @@ describe('completer/manager', () => {
       it('should attach a handler to the notebook panel', async () => {
         const context = contextFactory();
         const panel = NBTestUtils.createNotebookPanel(context);
-        manager.attachPanel(panel);
+        await manager.attachPanel(panel);
         expect(manager['_panelHandlers'].has(panel.id)).toBe(true);
       });
     });

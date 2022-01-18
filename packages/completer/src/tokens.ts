@@ -23,12 +23,6 @@ export interface ICompletionContext {
   /**
    * The current editor.
    */
-  /**
-   *
-   *
-   * @type {(CodeEditor.IEditor | null)}
-   * @memberof ICompletionContext
-   */
   editor?: CodeEditor.IEditor | null;
 
   /**
