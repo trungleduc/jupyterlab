@@ -1,8 +1,10 @@
+import { ICompletionContext, ICompletionProvider } from '.';
 import { CompletionHandler } from './handler';
 import { IConnectorProxy } from './tokens';
 export class ConnectorProxy implements IConnectorProxy {
-  constructor(connectorMap: ConnectorProxy.IConnectorMap) {
-    this._connectorMap = connectorMap;
+  constructor(completerContext: ICompletionContext, providers: Array<ICompletionProvider> ) {
+    this._providers = providers;
+    this._context = completerContext
   }
 
   public async fetch(
@@ -11,15 +13,17 @@ export class ConnectorProxy implements IConnectorProxy {
     let promises: Promise<{
       [id: string]: CompletionHandler.ICompletionItemsReply;
     }>[] = [];
-    for (const [id, connector] of this._connectorMap.entries()) {
-      let promise = connector.fetch(request).then(reply => ({ [id]: reply }));
+    for (const provider of this._providers) {
+      const id = provider.identifier;
+      let promise = provider.fetch({request, context: this._context}).then(reply => ({ [id]: reply }));
       promises.push(promise.catch(p => p));
     }
     const combinedPromise = Promise.all(promises);
     return combinedPromise;
   }
 
-  private _connectorMap: ConnectorProxy.IConnectorMap;
+  private _providers: Array<ICompletionProvider>;
+  private _context: ICompletionContext
 }
 
 export namespace ConnectorProxy {

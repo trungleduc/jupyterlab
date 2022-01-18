@@ -48,10 +48,10 @@ export class CompletionHandler implements IDisposable {
   /**
    * The editor used by the completion handler.
    */
-  get editor(): CodeEditor.IEditor | null {
+  get editor(): CodeEditor.IEditor | null | undefined {
     return this._editor;
   }
-  set editor(newValue: CodeEditor.IEditor | null) {
+  set editor(newValue: CodeEditor.IEditor | null | undefined) {
     if (newValue === this._editor) {
       return;
     }
@@ -378,7 +378,7 @@ export class CompletionHandler implements IDisposable {
   }
 
   private _connector: IConnectorProxy;
-  private _editor: CodeEditor.IEditor | null = null;
+  private _editor: CodeEditor.IEditor | null | undefined = null;
   private _enabled = false;
   private _isDisposed = false;
 }
@@ -469,7 +469,7 @@ export namespace CompletionHandler {
   /**
    * A reply to a completion items fetch request.
    */
-  export interface ICompletionItemsReply {
+  export interface ICompletionItemsReply<T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem > {
     /**
      * The starting index for the substring being replaced by completion.
      */
@@ -479,9 +479,9 @@ export namespace CompletionHandler {
      */
     end: number;
     /**
-     * A list of completion items.
+     * A list of completion items. default to CompletionHandler.ICompletionItems
      */
-    items: CompletionHandler.ICompletionItems;
+    items: Array<T>;
   }
 
   export interface ICompleterConnecterResponseType {

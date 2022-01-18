@@ -3,7 +3,6 @@ import { ConnectorProxy } from './connectorproxy';
 import { NotebookPanel } from '@jupyterlab/notebook';
 import { Completer } from './widget';
 import { CompleterModel } from './model';
-import { CodeEditor } from '@jupyterlab/codeeditor';
 import { Session } from '@jupyterlab/services';
 import { Widget } from '@lumino/widgets';
 import { CompletionHandler } from './handler';
@@ -12,6 +11,7 @@ import { FileEditor } from '@jupyterlab/fileeditor';
 import { find, toArray } from '@lumino/algorithm';
 import { ConsolePanel } from '@jupyterlab/console';
 import { DEFAULT_PROVIDER_ID } from './default/provider';
+import { ICompletionContext } from '.';
 
 export class CompletionProviderManager implements ICompletionProviderManager {
   constructor() {
@@ -19,18 +19,16 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     this._panelHandlers = new Map();
   }
 
-  generateConnectorProxy(options: {
-    session: Session.ISessionConnection | null;
-    editor: CodeEditor.IEditor | null;
-  }): ConnectorProxy {
-    let map: ConnectorProxy.IConnectorMap = new Map();
+  generateConnectorProxy(completerContext: ICompletionContext): ConnectorProxy {
+    let providers: Array<ICompletionProvider> = [];
+    //TODO Update list with rank
     this._activeProviders.forEach(id => {
       const provider = this._providers.get(id);
       if (provider) {
-        map.set(id, provider.connectorFactory(options));
+        providers.push(provider);
       }
     });
-    return new ConnectorProxy(map);
+    return new ConnectorProxy(completerContext, providers);
   }
 
   registerProvider(provider: ICompletionProvider): void {
@@ -64,21 +62,24 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     const anchor = consolePanel.console;
     const editor = anchor.promptCell?.editor ?? null;
     const session = anchor.sessionContext.session;
-    const handler = this.generateHandler(editor, session);
+    const completerContext: ICompletionContext = {editor, widget: anchor, session}
+    const handler = this.generateHandler(completerContext);
 
     const updateConnector = () => {
       const editor = anchor.promptCell?.editor ?? null;
       const session = anchor.sessionContext.session;
 
       handler.editor = editor;
-      handler.connector = this.generateConnectorProxy({ session, editor });
+      const completerContext: ICompletionContext = {editor, widget: anchor, session}
+      handler.connector = this.generateConnectorProxy(completerContext);
     };
     anchor.promptCellCreated.connect((_, cell) => {
       const editor = cell.editor;
       const session = anchor.sessionContext.session;
-
+      const completerContext: ICompletionContext = {editor, widget: anchor, session}
       handler.editor = editor;
-      handler.connector = this.generateConnectorProxy({ session, editor });
+
+      handler.connector = this.generateConnectorProxy(completerContext);
     });
     anchor.sessionContext.sessionChanged.connect(updateConnector);
 
@@ -93,7 +94,8 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     sessionManager: Session.IManager
   ): void {
     const editor = widget.content.editor;
-    const handler = this.generateHandler(editor, null);
+    const completerContext: ICompletionContext = {editor, widget }
+    const handler = this.generateHandler(completerContext);
     const onRunningChanged = (
       sender: Session.IManager,
       models: Session.IModel[]
@@ -114,7 +116,8 @@ export class CompletionProviderManager implements ICompletionProviderManager {
           oldSession.dispose();
         }
         const session = sessionManager.connectTo({ model });
-        handler.connector = this.generateConnectorProxy({ session, editor });
+        const completerContext: ICompletionContext = {editor, widget, session }
+        handler.connector = this.generateConnectorProxy(completerContext);
         this._activeSessions[widget.id] = session;
       } else {
         // If we didn't find a match, make sure
@@ -146,14 +149,18 @@ export class CompletionProviderManager implements ICompletionProviderManager {
   attachPanel(panel: NotebookPanel): void {
     const editor = panel.content.activeCell?.editor ?? null;
     const session = panel.sessionContext.session;
-    const handler = this.generateHandler(editor, session);
+    const completerContext: ICompletionContext = {editor, widget: panel, session}
+    const handler = this.generateHandler(completerContext);
 
     const updateConnector = () => {
       const editor = panel.content.activeCell?.editor ?? null;
       const session = panel.sessionContext.session;
 
-      handler.editor = editor;
-      handler.connector = this.generateConnectorProxy({ session, editor });
+      if(editor){
+        handler.editor = editor;
+        const completerContext: ICompletionContext = {editor, widget: panel, session}
+        handler.connector = this.generateConnectorProxy(completerContext);
+      }
     };
 
     panel.content.activeCellChanged.connect(updateConnector);
@@ -187,8 +194,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
   }
 
   private generateHandler(
-    editor: CodeEditor.IEditor | null,
-    session: Session.ISessionConnection | null
+    completerContext: ICompletionContext
   ): CompletionHandler {
     const firstProvider = [...this._activeProviders][0];
     let renderer = this._providers.get(firstProvider)?.renderer;
@@ -199,12 +205,12 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     const completer = new Completer({ model, renderer });
     completer.hide();
     Widget.attach(completer, document.body);
-    const connectorManager = this.generateConnectorProxy({ session, editor });
+    const connectorManager = this.generateConnectorProxy(completerContext);
     const handler = new CompletionHandler({
       completer,
       connector: connectorManager
     });
-    handler.editor = editor;
+    handler.editor = completerContext.editor;
 
     return handler;
   }

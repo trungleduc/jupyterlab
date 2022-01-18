@@ -6,17 +6,26 @@ import { Token } from '@lumino/coreutils';
 import { CompletionHandler } from './handler';
 import { Session } from '@jupyterlab/services';
 import { Completer } from './widget';
+import { IDocumentWidget } from '@jupyterlab/docregistry';
+import { CodeConsole } from '@jupyterlab/console';
 
-export interface ICompletionProvider {
+export interface ICompletionContext {
+  widget: IDocumentWidget | CodeConsole;
+  editor?: CodeEditor.IEditor | null;
+  session?: Session.ISessionConnection | null;
+}
+
+
+export interface ICompletionProvider<T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem > {
   /**
    * Unique identifier of the provider
    */
   identifier: string;
 
-  connectorFactory: (options: {
-    session: Session.ISessionConnection | null;
-    editor: CodeEditor.IEditor | null;
-  }) => CompletionHandler.ICompletionItemsConnector;
+  fetch(options: {
+    request: CompletionHandler.IRequest,
+    context: ICompletionContext
+  }) : Promise<CompletionHandler.ICompletionItemsReply<T>>;
 
   renderer: Completer.IRenderer | null | undefined;
 }
@@ -29,8 +38,8 @@ export interface ICompletionProviderManager {
   registerProvider(provider: ICompletionProvider): void;
 }
 
-export interface IConnectorProxy {
+export interface IConnectorProxy<T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem> {
   fetch(
     request: CompletionHandler.IRequest
-  ): Promise<Array<{ [id: string]: CompletionHandler.ICompletionItemsReply }>>;
+  ): Promise<Array<{ [id: string]: CompletionHandler.ICompletionItemsReply<T> }>>;
 }
