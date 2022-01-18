@@ -221,7 +221,6 @@ export class Completer extends Widget {
    */
   protected onUpdateRequest(msg: Message): void {
     const model = this._model;
-
     if (!model) {
       return;
     }

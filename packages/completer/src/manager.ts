@@ -20,15 +20,17 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     this._panelHandlers = new Map();
   }
 
-  generateConnectorProxy(completerContext: ICompletionContext): ConnectorProxy {
+  async generateConnectorProxy(
+    completerContext: ICompletionContext
+  ): Promise<ConnectorProxy> {
     let providers: Array<ICompletionProvider> = [];
     //TODO Update list with rank
-    this._activeProviders.forEach(id => {
+    for (const id of this._activeProviders) {
       const provider = this._providers.get(id);
-      if (provider) {
+      if (provider && (await provider.isApplicable(completerContext))) {
         providers.push(provider);
       }
-    });
+    }
     return new ConnectorProxy(completerContext, providers);
   }
 
@@ -60,7 +62,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     }
   }
 
-  attachConsole(consolePanel: ConsolePanel): void {
+  async attachConsole(consolePanel: ConsolePanel): Promise<void> {
     const anchor = consolePanel.console;
     const editor = anchor.promptCell?.editor ?? null;
     const session = anchor.sessionContext.session;
@@ -69,9 +71,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
       widget: anchor,
       session
     };
-    const handler = this.generateHandler(completerContext);
+    const handler = await this.generateHandler(completerContext);
 
-    const updateConnector = () => {
+    const updateConnector = async () => {
       const editor = anchor.promptCell?.editor ?? null;
       const session = anchor.sessionContext.session;
 
@@ -81,9 +83,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
         widget: anchor,
         session
       };
-      handler.connector = this.generateConnectorProxy(completerContext);
+      handler.connector = await this.generateConnectorProxy(completerContext);
     };
-    anchor.promptCellCreated.connect((_, cell) => {
+    anchor.promptCellCreated.connect(async (_, cell) => {
       const editor = cell.editor;
       const session = anchor.sessionContext.session;
       const completerContext: ICompletionContext = {
@@ -93,7 +95,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
       };
       handler.editor = editor;
 
-      handler.connector = this.generateConnectorProxy(completerContext);
+      handler.connector = await this.generateConnectorProxy(completerContext);
     });
     anchor.sessionContext.sessionChanged.connect(updateConnector);
 
@@ -103,14 +105,14 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     });
   }
 
-  attachEditor(
+  async attachEditor(
     widget: IDocumentWidget<FileEditor>,
     sessionManager: Session.IManager
-  ): void {
+  ): Promise<void> {
     const editor = widget.content.editor;
     const completerContext: ICompletionContext = { editor, widget };
-    const handler = this.generateHandler(completerContext);
-    const onRunningChanged = (
+    const handler = await this.generateHandler(completerContext);
+    const onRunningChanged = async (
       sender: Session.IManager,
       models: Session.IModel[]
     ) => {
@@ -135,7 +137,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
           widget,
           session
         };
-        handler.connector = this.generateConnectorProxy(completerContext);
+        handler.connector = await this.generateConnectorProxy(completerContext);
         this._activeSessions[widget.id] = session;
       } else {
         // If we didn't find a match, make sure
@@ -148,7 +150,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
       }
     };
 
-    onRunningChanged(sessionManager, toArray(sessionManager.running()));
+    await onRunningChanged(sessionManager, toArray(sessionManager.running()));
     sessionManager.runningChanged.connect(onRunningChanged);
 
     widget.disposed.connect(() => {
@@ -164,7 +166,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     this._panelHandlers.set(widget.id, handler);
   }
 
-  attachPanel(panel: NotebookPanel): void {
+  async attachPanel(panel: NotebookPanel): Promise<void> {
     const editor = panel.content.activeCell?.editor ?? null;
     const session = panel.sessionContext.session;
     const completerContext: ICompletionContext = {
@@ -172,9 +174,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
       widget: panel,
       session
     };
-    const handler = this.generateHandler(completerContext);
+    const handler = await this.generateHandler(completerContext);
 
-    const updateConnector = () => {
+    const updateConnector = async () => {
       const editor = panel.content.activeCell?.editor ?? null;
       const session = panel.sessionContext.session;
 
@@ -185,7 +187,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
           widget: panel,
           session
         };
-        handler.connector = this.generateConnectorProxy(completerContext);
+        handler.connector = await this.generateConnectorProxy(completerContext);
       }
     };
 
@@ -219,9 +221,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     this._panelHandlers.delete(id);
   }
 
-  private generateHandler(
+  private async generateHandler(
     completerContext: ICompletionContext
-  ): CompletionHandler {
+  ): Promise<CompletionHandler> {
     const firstProvider = [...this._activeProviders][0];
     let renderer = this._providers.get(firstProvider)?.renderer;
     if (!renderer) {
@@ -231,7 +233,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     const completer = new Completer({ model, renderer });
     completer.hide();
     Widget.attach(completer, document.body);
-    const connectorManager = this.generateConnectorProxy(completerContext);
+    const connectorManager = await this.generateConnectorProxy(
+      completerContext
+    );
     const handler = new CompletionHandler({
       completer,
       connector: connectorManager

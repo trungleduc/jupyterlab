@@ -11,6 +11,13 @@ export const KERNEL_PROVIDER_ID = 'CompletionProvider:kernel';
  * A kernel connector for completion handlers.
  */
 export class KernelCompleterProvider implements ICompletionProvider {
+  async isApplicable(context: ICompletionContext): Promise<boolean> {
+    const hasKernel = context.session?.kernel;
+    if (!hasKernel) {
+      return false;
+    }
+    return true;
+  }
   /**
    * Fetch completion requests.
    *

@@ -12,6 +12,10 @@ export const CONTEXT_PROVIDER_ID = 'CompletionProvider:context';
  * A context connector for completion handlers.
  */
 export class ContextCompleterProvider implements ICompletionProvider {
+  async isApplicable(context: ICompletionContext): Promise<boolean> {
+    return true;
+  }
+
   /**
    * Fetch completion requests.
    *

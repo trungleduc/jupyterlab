@@ -23,6 +23,19 @@ export interface ICompletionProvider<
    */
   identifier: string;
 
+  /**
+   * Is completion provider applicable to specified context?
+   * @param request - the completion request text and details
+   * @param context - additional information about context of completion request
+   */
+  isApplicable(context: ICompletionContext): Promise<boolean>;
+
+  /**
+   * Fetch completion requests.
+   *
+   * @param request - the completion request text and details
+   * @param context - additional information about context of completion request
+   */
   fetch(
     request: CompletionHandler.IRequest,
     context: ICompletionContext

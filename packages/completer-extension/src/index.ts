@@ -203,14 +203,15 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
       `.jp-ConsolePanel .jp-mod-completer-active`
     );
 
-    notebooks.widgetAdded.connect((_, notebook) =>
-      manager.attachPanel(notebook)
+    notebooks.widgetAdded.connect(
+      async (_, notebook) => await manager.attachPanel(notebook)
     );
-    editorTracker.widgetAdded.connect((_, widget) =>
-      manager.attachEditor(widget, app.serviceManager.sessions)
+    editorTracker.widgetAdded.connect(
+      async (_, widget) =>
+        await manager.attachEditor(widget, app.serviceManager.sessions)
     );
-    consoles.widgetAdded.connect((_, console) =>
-      manager.attachConsole(console)
+    consoles.widgetAdded.connect(
+      async (_, console) => await manager.attachConsole(console)
     );
     return manager;
   }
