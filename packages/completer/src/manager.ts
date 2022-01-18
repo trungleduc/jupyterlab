@@ -14,30 +14,32 @@ import { ICompletionContext } from '.';
 import { CONTEXT_PROVIDER_ID } from './default/contextprovider';
 import { KERNEL_PROVIDER_ID } from './default/kernelprovider';
 
+/**
+ * A manager for completer provider.
+ */
 export class CompletionProviderManager implements ICompletionProviderManager {
+  /**
+   * Construct a new completer manager.
+   */
   constructor() {
     this._providers = new Map();
     this._panelHandlers = new Map();
   }
 
-  async generateConnectorProxy(
-    completerContext: ICompletionContext
-  ): Promise<ConnectorProxy> {
-    let providers: Array<ICompletionProvider> = [];
-    //TODO Update list with rank
-    for (const id of this._activeProviders) {
-      const provider = this._providers.get(id);
-      if (provider && (await provider.isApplicable(completerContext))) {
-        providers.push(provider);
-      }
-    }
-    return new ConnectorProxy(completerContext, providers, this._timeout);
-  }
-
+  /**
+   * Set provider timeout
+   *
+   * @param {number} timeout - value of timeout in millisecond.
+   */
   setTimeout(timeout: number): void {
-      this._timeout = timeout;
+    this._timeout = timeout;
   }
 
+  /**
+   * Register a completer provider with the manager.
+   *
+   * @param {ICompletionProvider} provider - the provider to be registered.
+   */
   registerProvider(provider: ICompletionProvider): void {
     const identifier = provider.identifier;
     if (this._providers.has(identifier)) {
@@ -49,10 +51,20 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     }
   }
 
+  /**
+   *
+   * Return the map of providers.
+   */
   getProviders(): Map<string, ICompletionProvider> {
     return this._providers;
   }
 
+  /**
+   * Activate the providers by id, the list of ids is populated from user setting.
+   * The non-existing providers will be discarded.
+   *
+   * @param {Array<string>} providerIds - Array of strings with ids of provider
+   */
   activateProvider(providerIds: Array<string>): void {
     this._activeProviders = new Set([]);
     providerIds.forEach(providerId => {
@@ -66,6 +78,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     }
   }
 
+  /**
+   * Activate completer providers for a console panel.
+   */
   async attachConsole(consolePanel: ConsolePanel): Promise<void> {
     const anchor = consolePanel.console;
     const editor = anchor.promptCell?.editor ?? null;
@@ -109,6 +124,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     });
   }
 
+  /**
+   * Activate completer providers for a code editor.
+   */
   async attachEditor(
     widget: IDocumentWidget<FileEditor>,
     sessionManager: Session.IManager
@@ -170,6 +188,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     this._panelHandlers.set(widget.id, handler);
   }
 
+  /**
+   * Activate completer providers for a notebook.
+   */
   async attachPanel(panel: NotebookPanel): Promise<void> {
     const editor = panel.content.activeCell?.editor ?? null;
     const session = panel.sessionContext.session;
@@ -202,9 +223,13 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     panel.disposed.connect(old => {
       this.disposeHandler(old.id, handler);
     });
-
   }
 
+  /**
+   * Invoke the completer in the widget with provided id.
+   *
+   * @param {string} id - the id of notebook panel, console panel or code editor.
+   */
   invoke(id: string): void {
     const handler = this._panelHandlers.get(id);
     if (handler) {
@@ -212,6 +237,11 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     }
   }
 
+  /**
+   * Activate `select` command in the widget with provided id.
+   *
+   * @param {string} id - the id of notebook panel, console panel or code editor.
+   */
   select(id: string): void {
     const handler = this._panelHandlers.get(id);
     if (handler) {
@@ -219,6 +249,33 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     }
   }
 
+  /**
+   * Helper function to generate a `ConnectorProxy` with provided context.
+   * The `isApplicable` method of provider is used to filter out the providers
+   * which can not be used with provided context.
+   *
+   * @param {ICompletionContext} completerContext - the current completer context
+   */
+  private async generateConnectorProxy(
+    completerContext: ICompletionContext
+  ): Promise<ConnectorProxy> {
+    let providers: Array<ICompletionProvider> = [];
+    //TODO Update list with rank
+    for (const id of this._activeProviders) {
+      const provider = this._providers.get(id);
+      if (provider && (await provider.isApplicable(completerContext))) {
+        providers.push(provider);
+      }
+    }
+    return new ConnectorProxy(completerContext, providers, this._timeout);
+  }
+
+  /**
+   * Helper to dispose the completer handler on widget disposed event.
+   *
+   * @param {string} id - id of the widget
+   * @param {CompletionHandler} handler - the handler to be disposed.
+   */
   private disposeHandler(id: string, handler: CompletionHandler) {
     handler.completer.model?.dispose();
     handler.completer.dispose();
@@ -226,6 +283,9 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     this._panelHandlers.delete(id);
   }
 
+  /**
+   * Helper to generate a completer handler from provided context.
+   */
   private async generateHandler(
     completerContext: ICompletionContext
   ): Promise<CompletionHandler> {
@@ -250,11 +310,32 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     return handler;
   }
 
+  /**
+   * The completer provider map, the keys are id of provider
+   */
   private readonly _providers: Map<string, ICompletionProvider>;
+
+  /**
+   * The completer handler map, the keys are id of widget and
+   * values are the completer handler attached to this widget.
+   */
   private _panelHandlers: Map<string, CompletionHandler>;
+
+  /**
+   * A cache of `Session.ISessionConnection`, it is used to set the
+   * session for file editor.
+   */
   private _activeSessions: {
     [id: string]: Session.ISessionConnection;
   } = {};
+
+  /**
+   * The set of activated provider
+   */
   private _activeProviders = new Set([KERNEL_PROVIDER_ID, CONTEXT_PROVIDER_ID]);
+
+  /**
+   * Timeout value for the completer provider.
+   */
   private _timeout: number;
 }

@@ -9,12 +9,37 @@ import { Completer } from './widget';
 import { IDocumentWidget } from '@jupyterlab/docregistry';
 import { CodeConsole } from '@jupyterlab/console';
 
+/**
+ * The context which will be passed to the `fetch` function
+ * of a provider.
+ */
 export interface ICompletionContext {
+  /**
+   * The widget (notebook, console, code editor) which invoked
+   * the completer
+   */
   widget: IDocumentWidget | CodeConsole;
+
+  /**
+   * The current editor.
+   */
+  /**
+   *
+   *
+   * @type {(CodeEditor.IEditor | null)}
+   * @memberof ICompletionContext
+   */
   editor?: CodeEditor.IEditor | null;
+
+  /**
+   * The session extracted from widget for convenience.
+   */
   session?: Session.ISessionConnection | null;
 }
 
+/**
+ * The interface to implement a completer provider.
+ */
 export interface ICompletionProvider<
   T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem
 > {
@@ -41,16 +66,22 @@ export interface ICompletionProvider<
     context: ICompletionContext
   ): Promise<CompletionHandler.ICompletionItemsReply<T>>;
 
+  /**
+   * Renderer for provider's completions (optional).
+   */
   renderer: Completer.IRenderer | null | undefined;
 }
 
+/**
+ * The exported token used to register new provider.
+ */
 export const ICompletionProviderManager = new Token<ICompletionProviderManager>(
   '@jupyterlab/completer:ICompletionProviderManager'
 );
 
 export interface ICompletionProviderManager {
   registerProvider(provider: ICompletionProvider): void;
-  setTimeout(timeout: number): void
+  setTimeout(timeout: number): void;
 }
 
 export interface IConnectorProxy {
