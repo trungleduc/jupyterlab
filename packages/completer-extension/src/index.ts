@@ -131,15 +131,17 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
 
     const settingsPromise = settings.load(COMPLETION_MANAGER_PLUGIN);
 
-    Promise.all([settingsPromise, app.restored]).then(([settingValues]) => {
-      const availableProviders = [...manager.getServices().keys()];
-      settingValues.set('availableProviders', availableProviders);
-      updateSetting(settingValues.get('selectedProviders').composite);
+    void Promise.all([settingsPromise, app.restored]).then(
+      ([settingValues]) => {
+        const availableProviders = [...manager.getServices().keys()];
+        void settingValues.set('availableProviders', availableProviders);
+        updateSetting(settingValues.get('selectedProviders').composite);
 
-      settingValues.changed.connect(newSettings => {
-        updateSetting(newSettings.get('selectedProviders').composite);
-      });
-    });
+        settingValues.changed.connect(newSettings => {
+          updateSetting(newSettings.get('selectedProviders').composite);
+        });
+      }
+    );
 
     app.commands.addCommand(CommandIDs.invokeNotebook, {
       execute: args => {
