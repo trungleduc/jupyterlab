@@ -9,7 +9,7 @@ import { CompletionHandler } from '../handler';
  * A context connector for completion handlers.
  */
 export class ContextConnector extends DataConnector<
-CompletionHandler.ICompletionItemsReply,
+  CompletionHandler.ICompletionItemsReply,
   void,
   CompletionHandler.IRequest
 > {

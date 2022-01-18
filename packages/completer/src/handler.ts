@@ -5,7 +5,7 @@ import { CodeEditor } from '@jupyterlab/codeeditor';
 import { Text } from '@jupyterlab/coreutils';
 import { IDataConnector } from '@jupyterlab/statedb';
 import { LabIcon } from '@jupyterlab/ui-components';
-import {ReadonlyJSONObject } from '@lumino/coreutils';
+import { ReadonlyJSONObject } from '@lumino/coreutils';
 import { IDisposable } from '@lumino/disposable';
 import { Message, MessageLoop } from '@lumino/messaging';
 import { Signal } from '@lumino/signaling';
@@ -74,7 +74,7 @@ export class CompletionHandler implements IDisposable {
 
     // Update the editor and signal connections.
     editor = this._editor = newValue;
-    
+
     if (editor) {
       const model = editor.model;
       this._enabled = false;
@@ -210,7 +210,6 @@ export class CompletionHandler implements IDisposable {
    *    even though the completer is not available.
    */
   protected onSelectionsChanged(): void {
-    
     const model = this.completer.model;
     const editor = this._editor;
 
@@ -329,24 +328,28 @@ export class CompletionHandler implements IDisposable {
     return this._connector.fetch(request).then(replies => {
       let start = 0;
       let end = 0;
-      let items: Array<any> = []
+      let items: Array<any> = [];
       for (const data of replies) {
         //TODO: Send provider name to model to render a splitter between different providers
-        const dataValue = Object.values(data)[0]
-        items = items.concat(dataValue.items)
-        start = dataValue.start
-        end = dataValue.end
-      }     
-      let reply: CompletionHandler.ICompletionItemsReply = {start, end, items };
+        const dataValue = Object.values(data)[0];
+        items = items.concat(dataValue.items);
+        start = dataValue.start;
+        end = dataValue.end;
+      }
+      let reply: CompletionHandler.ICompletionItemsReply = {
+        start,
+        end,
+        items
+      };
       const model = this._updateModel(state, reply.start, reply.end);
       if (!model) {
         return;
       }
-      
-      if(model.setCompletionItems){
+
+      if (model.setCompletionItems) {
         model.setCompletionItems(reply.items);
       }
-    })
+    });
   }
 
   /**
@@ -373,8 +376,6 @@ export class CompletionHandler implements IDisposable {
     };
     return model;
   }
-
-
 
   private _connector: IConnectorProxy;
   private _editor: CodeEditor.IEditor | null = null;
@@ -463,7 +464,7 @@ export namespace CompletionHandler {
     CompletionHandler.ICompletionItemsReply,
     void,
     CompletionHandler.IRequest
-  >
+  >;
 
   /**
    * A reply to a completion items fetch request.

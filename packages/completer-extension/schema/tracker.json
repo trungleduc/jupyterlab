@@ -10,9 +10,7 @@
       "items": {
         "type": "string"
       },
-      "default": [
-       
-      ]
+      "default": []
     },
     "selectedProviders": {
       "title": "Selected provider for completion",

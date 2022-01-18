@@ -32,7 +32,7 @@ export class CompletionConnector extends DataConnector<
    */
   fetch(
     request: CompletionHandler.IRequest
-  ): Promise<CompletionHandler.ICompletionItemsReply> {  
+  ): Promise<CompletionHandler.ICompletionItemsReply> {
     return Promise.all([
       this._kernel.fetch(request),
       this._context.fetch(request)
@@ -82,13 +82,13 @@ namespace Private {
       return kernel;
     }
 
-    const kernelLabels = new Set(kernel.items.map(item => item.label)) 
-    const items = [...kernel.items]
+    const kernelLabels = new Set(kernel.items.map(item => item.label));
+    const items = [...kernel.items];
     context.items.forEach(item => {
-      if(!kernelLabels.has(item.label)){
-        items.push(item)
+      if (!kernelLabels.has(item.label)) {
+        items.push(item);
       }
-    })
+    });
     return { ...kernel, items };
   }
 }

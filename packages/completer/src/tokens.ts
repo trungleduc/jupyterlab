@@ -7,7 +7,6 @@ import { CompletionHandler } from './handler';
 import { Session } from '@jupyterlab/services';
 import { Completer } from './widget';
 
-
 export interface ICompletionProvider {
   /**
    * Unique identifier of the provider
