@@ -19,7 +19,7 @@ import { IEditorTracker } from '@jupyterlab/fileeditor';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { IConsoleTracker } from '@jupyterlab/console';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-import { ReadonlyPartialJSONValue } from '@lumino/coreutils';
+import { PartialJSONObject } from '@lumino/coreutils';
 /**
  * The command IDs used by the completer plugin.
  */
@@ -51,8 +51,8 @@ const defaultProvider: JupyterFrontEndPlugin<void> = {
     app: JupyterFrontEnd,
     serviceManager: ICompletionProviderManager
   ): Promise<void> => {
-    serviceManager.registerProvider(new KernelCompleterProvider());
     serviceManager.registerProvider(new ContextCompleterProvider());
+    serviceManager.registerProvider(new KernelCompleterProvider());
   }
 };
 
@@ -74,32 +74,53 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
     settings: ISettingRegistry
   ): ICompletionProviderManager => {
     const manager = new CompletionProviderManager();
-
-    const updateSetting = (
-      selectedProviders: ReadonlyPartialJSONValue | undefined
-    ): void => {
-      let current: Array<string>;
-      if (typeof selectedProviders === 'string') {
-        current = [selectedProviders as string];
-      } else {
-        current = selectedProviders as Array<string>;
+    const AVAILABLE_PROVIDERS = 'availableProviders';
+    const updateSetting = (settingValues: ISettingRegistry.ISettings): void => {
+      const providersData = settingValues.get(AVAILABLE_PROVIDERS);
+      const selectedProviders = providersData.user || providersData.composite;
+      if (selectedProviders) {
+        const sortedProviders = Object.entries(selectedProviders)
+          .filter(val => val[1] >= 0)
+          .sort(([, rank1], [, rank2]) => rank2 - rank1)
+          .map(item => item[0]);
+        manager.activateProvider(sortedProviders);
       }
-      manager.activateProvider(current);
     };
 
-    const settingsPromise = settings.load(COMPLETION_MANAGER_PLUGIN);
+    app.restored.then(() => {
+      const availableProviders = [...manager.getProviders().keys()];
+      settings.transform(COMPLETION_MANAGER_PLUGIN, {
+        fetch: plugin => {
+          const schema = plugin.schema.properties!;
+          availableProviders.forEach((item, index) => {
+            schema[AVAILABLE_PROVIDERS]['properties']![item] = {
+              type: 'number',
+              default: index + 1
+            };
+          });
+          return plugin;
+        }
+      });
+      const settingsPromise = settings.load(COMPLETION_MANAGER_PLUGIN);
+      settingsPromise.then(settingValues => {
+        const userData = settingValues.get(AVAILABLE_PROVIDERS).user;
 
-    void Promise.all([settingsPromise, app.restored]).then(
-      ([settingValues]) => {
-        const availableProviders = [...manager.getProviders().keys()];
-        void settingValues.set('availableProviders', availableProviders);
-        updateSetting(settingValues.get('selectedProviders').composite);
+        if (userData) {
+          const newData: PartialJSONObject = {};
+          for (const [key, value] of Object.entries(userData)) {
+            if (availableProviders.includes(key)) {
+              newData[key] = value;
+            }
+          }
+          void settingValues.set(AVAILABLE_PROVIDERS, newData);
+        }
 
+        updateSetting(settingValues);
         settingValues.changed.connect(newSettings => {
-          updateSetting(newSettings.get('selectedProviders').composite);
+          updateSetting(newSettings);
         });
-      }
-    );
+      });
+    });
 
     app.commands.addCommand(CommandIDs.invokeNotebook, {
       execute: args => {

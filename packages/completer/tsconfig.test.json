@@ -9,19 +9,7 @@
       "path": "../codeeditor"
     },
     {
-      "path": "../console"
-    },
-    {
       "path": "../coreutils"
-    },
-    {
-      "path": "../docregistry"
-    },
-    {
-      "path": "../fileeditor"
-    },
-    {
-      "path": "../notebook"
     },
     {
       "path": "../services"
@@ -31,6 +19,18 @@
     },
     {
       "path": "../ui-components"
+    },
+    {
+      "path": "../console"
+    },
+    {
+      "path": "../docregistry"
+    },
+    {
+      "path": "../fileeditor"
+    },
+    {
+      "path": "../notebook"
     },
     {
       "path": "."
