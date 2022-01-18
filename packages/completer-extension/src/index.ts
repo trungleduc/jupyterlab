@@ -11,8 +11,9 @@ import {
 } from '@jupyterlab/application';
 import {
   CompletionProviderManager,
-  DefaultCompletionProvider,
-  ICompletionProviderManager
+  ContextCompleterProvider,
+  ICompletionProviderManager,
+  KernelCompleterProvider
 } from '@jupyterlab/completer';
 import { IEditorTracker } from '@jupyterlab/fileeditor';
 import { INotebookTracker } from '@jupyterlab/notebook';
@@ -50,7 +51,8 @@ const defaultProvider: JupyterFrontEndPlugin<void> = {
     app: JupyterFrontEnd,
     serviceManager: ICompletionProviderManager
   ): Promise<void> => {
-    serviceManager.registerProvider(new DefaultCompletionProvider());
+    serviceManager.registerProvider(new KernelCompleterProvider());
+    serviceManager.registerProvider(new ContextCompleterProvider());
   }
 };
 

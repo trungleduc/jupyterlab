@@ -15,17 +15,18 @@ export interface ICompletionContext {
   session?: Session.ISessionConnection | null;
 }
 
-
-export interface ICompletionProvider<T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem > {
+export interface ICompletionProvider<
+  T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem
+> {
   /**
    * Unique identifier of the provider
    */
   identifier: string;
 
-  fetch(options: {
+  fetch(
     request: CompletionHandler.IRequest,
     context: ICompletionContext
-  }) : Promise<CompletionHandler.ICompletionItemsReply<T>>;
+  ): Promise<CompletionHandler.ICompletionItemsReply<T>>;
 
   renderer: Completer.IRenderer | null | undefined;
 }
@@ -38,8 +39,12 @@ export interface ICompletionProviderManager {
   registerProvider(provider: ICompletionProvider): void;
 }
 
-export interface IConnectorProxy<T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem> {
+export interface IConnectorProxy<
+  T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem
+> {
   fetch(
     request: CompletionHandler.IRequest
-  ): Promise<Array<{ [id: string]: CompletionHandler.ICompletionItemsReply<T> }>>;
+  ): Promise<
+    Array<{ [id: string]: CompletionHandler.ICompletionItemsReply<T> }>
+  >;
 }

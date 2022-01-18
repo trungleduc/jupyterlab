@@ -1,39 +1,26 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { KernelMessage, Session } from '@jupyterlab/services';
-import { DataConnector } from '@jupyterlab/statedb';
+import { KernelMessage } from '@jupyterlab/services';
+import { ICompletionContext, ICompletionProvider } from '../tokens';
 import { CompletionHandler } from '../handler';
 import { JSONObject } from '@lumino/coreutils';
 
+export const KERNEL_PROVIDER_ID = 'CompletionProvider:kernel';
 /**
  * A kernel connector for completion handlers.
  */
-export class KernelConnector extends DataConnector<
-  CompletionHandler.ICompletionItemsReply,
-  void,
-  CompletionHandler.IRequest
-> {
-  /**
-   * Create a new kernel connector for completion requests.
-   *
-   * @param options - The instantiation options for the kernel connector.
-   */
-  constructor(options: KernelConnector.IOptions) {
-    super();
-    this._session = options.session;
-  }
-
+export class KernelCompleterProvider implements ICompletionProvider {
   /**
    * Fetch completion requests.
    *
    * @param request - The completion request text and details.
    */
   async fetch(
-    request: CompletionHandler.IRequest
+    request: CompletionHandler.IRequest,
+    context: ICompletionContext
   ): Promise<CompletionHandler.ICompletionItemsReply> {
-    const kernel = this._session?.kernel;
-
+    const kernel = context.session?.kernel;
     if (!kernel) {
       throw new Error('No kernel for completion request.');
     }
@@ -73,20 +60,6 @@ export class KernelConnector extends DataConnector<
     };
   }
 
-  private _session: Session.ISessionConnection | null;
-}
-
-/**
- * A namespace for kernel connector statics.
- */
-export namespace KernelConnector {
-  /**
-   * The instantiation options for cell completion handlers.
-   */
-  export interface IOptions {
-    /**
-     * The session used by the kernel connector.
-     */
-    session: Session.ISessionConnection | null;
-  }
+  identifier = KERNEL_PROVIDER_ID;
+  renderer = null;
 }

@@ -14,11 +14,11 @@ export class ConnectorProxy implements IConnectorProxy {
       [id: string]: CompletionHandler.ICompletionItemsReply;
     }>[] = [];
     for (const provider of this._providers) {
-      const id = provider.identifier;
-      let promise = provider.fetch({request, context: this._context}).then(reply => ({ [id]: reply }));
+      const id = provider.identifier
+      let promise = provider.fetch(request, this._context).then(reply => ({ [id]: reply }));
       promises.push(promise.catch(p => p));
     }
-    const combinedPromise = Promise.all(promises);
+    const combinedPromise = Promise.all(promises);   
     return combinedPromise;
   }
 
