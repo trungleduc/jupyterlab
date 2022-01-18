@@ -11,6 +11,12 @@
       "properties": {},
       "additionalProperties": true,
       "default": {}
+    },
+    "providerTimeout": {
+      "title": "Default timeout for a provider",
+      "description": "If a provider can not return the response for a completer request before timeout, the result of this provider will be ignore. Value is in ms",
+      "type": "number",
+      "default": 1000
     }
   },
   "additionalProperties": false,

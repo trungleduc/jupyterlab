@@ -264,7 +264,6 @@ export class CompletionHandler implements IDisposable {
       this._enabled = true;
       host.classList.add(COMPLETER_ENABLED_CLASS);
     }
-
     // Dispatch the cursor change.
     model.handleCursorChange(this.getState(editor, editor.getCursorPosition()));
   }
@@ -328,26 +327,22 @@ export class CompletionHandler implements IDisposable {
     return this._connector.fetch(request).then(replies => {
       let start = 0;
       let end = 0;
-      let items: Array<any> = [];
+      let items: CompletionHandler.ICompletionItem[] = [];
       for (const data of replies) {
-        //TODO: Send provider name to model to render a splitter between different providers
-        const dataValue = Object.values(data)[0];
-        items = items.concat(dataValue.items);
-        start = dataValue.start;
-        end = dataValue.end;
+        if (data) {
+          items = items.concat(data.items);
+          start = data.start;
+          end = data.end;
+        }
       }
-      let reply: CompletionHandler.ICompletionItemsReply = {
-        start,
-        end,
-        items
-      };
-      const model = this._updateModel(state, reply.start, reply.end);
+
+      const model = this._updateModel(state, start, end);
       if (!model) {
         return;
       }
 
       if (model.setCompletionItems) {
-        model.setCompletionItems(reply.items);
+        model.setCompletionItems(items);
       }
     });
   }
@@ -472,6 +467,11 @@ export namespace CompletionHandler {
   export interface ICompletionItemsReply<
     T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem
   > {
+    /**
+     * The id of provider..
+     */
+
+    provider?: string;
     /**
      * The starting index for the substring being replaced by completion.
      */

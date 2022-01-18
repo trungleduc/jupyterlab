@@ -73,10 +73,14 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
     consoles: IConsoleTracker,
     settings: ISettingRegistry
   ): ICompletionProviderManager => {
-    const manager = new CompletionProviderManager();
     const AVAILABLE_PROVIDERS = 'availableProviders';
+    const PROVIDER_TIMEOUT = 'providerTimeout';
+    const manager = new CompletionProviderManager();
     const updateSetting = (settingValues: ISettingRegistry.ISettings): void => {
       const providersData = settingValues.get(AVAILABLE_PROVIDERS);
+      const timeout = settingValues.get(PROVIDER_TIMEOUT)
+      console.log('timeout', timeout);
+      manager.setTimeout(timeout.composite as number);
       const selectedProviders = providersData.user || providersData.composite;
       if (selectedProviders) {
         const sortedProviders = Object.entries(selectedProviders)
@@ -95,7 +99,7 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
           availableProviders.forEach((item, index) => {
             schema[AVAILABLE_PROVIDERS]['properties']![item] = {
               type: 'number',
-              default: index + 1
+              default: (index + 1)*100
             };
           });
           return plugin;

@@ -50,14 +50,11 @@ export const ICompletionProviderManager = new Token<ICompletionProviderManager>(
 
 export interface ICompletionProviderManager {
   registerProvider(provider: ICompletionProvider): void;
+  setTimeout(timeout: number): void
 }
 
-export interface IConnectorProxy<
-  T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem
-> {
+export interface IConnectorProxy {
   fetch(
     request: CompletionHandler.IRequest
-  ): Promise<
-    Array<{ [id: string]: CompletionHandler.ICompletionItemsReply<T> }>
-  >;
+  ): Promise<Array<CompletionHandler.ICompletionItemsReply | null>>;
 }

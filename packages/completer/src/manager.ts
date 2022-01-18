@@ -31,7 +31,11 @@ export class CompletionProviderManager implements ICompletionProviderManager {
         providers.push(provider);
       }
     }
-    return new ConnectorProxy(completerContext, providers);
+    return new ConnectorProxy(completerContext, providers, this._timeout);
+  }
+
+  setTimeout(timeout: number): void {
+      this._timeout = timeout;
   }
 
   registerProvider(provider: ICompletionProvider): void {
@@ -198,6 +202,7 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     panel.disposed.connect(old => {
       this.disposeHandler(old.id, handler);
     });
+
   }
 
   invoke(id: string): void {
@@ -251,4 +256,5 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     [id: string]: Session.ISessionConnection;
   } = {};
   private _activeProviders = new Set([KERNEL_PROVIDER_ID, CONTEXT_PROVIDER_ID]);
+  private _timeout: number;
 }
