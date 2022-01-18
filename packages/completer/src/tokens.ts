@@ -18,7 +18,7 @@ export interface ICompletionContext {
    * The widget (notebook, console, code editor) which invoked
    * the completer
    */
-  widget: IDocumentWidget | CodeConsole;
+  widget?: IDocumentWidget | CodeConsole;
 
   /**
    * The current editor.

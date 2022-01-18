@@ -297,12 +297,10 @@ export class CompletionProviderManager implements ICompletionProviderManager {
     const completer = new Completer({ model, renderer });
     completer.hide();
     Widget.attach(completer, document.body);
-    const connectorManager = await this.generateConnectorProxy(
-      completerContext
-    );
+    const connectorProxy = await this.generateConnectorProxy(completerContext);
     const handler = new CompletionHandler({
       completer,
-      connector: connectorManager
+      connector: connectorProxy
     });
     handler.editor = completerContext.editor;
 
