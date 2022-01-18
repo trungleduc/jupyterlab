@@ -10,18 +10,14 @@ import {
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
 import {
-  CompletionHandler,
   CompletionProviderManager,
   DefaultCompletionProvider,
-  ICompletionProvider,
   ICompletionProviderManager
 } from '@jupyterlab/completer';
 import { IEditorTracker } from '@jupyterlab/fileeditor';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { IConsoleTracker } from '@jupyterlab/console';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-import { DataConnector } from '@jupyterlab/statedb';
-import { CompletionConnector } from '@jupyterlab/completer/src/default/connector';
 import { ReadonlyPartialJSONValue } from '@lumino/coreutils';
 /**
  * The command IDs used by the completer plugin.
@@ -45,46 +41,6 @@ namespace CommandIDs {
 }
 
 const COMPLETION_MANAGER_PLUGIN = '@jupyterlab/completer-extension:tracker';
-
-const fooService: JupyterFrontEndPlugin<void> = {
-  id: '@jupyterlab/completer-extension:foo',
-  requires: [ICompletionProviderManager],
-  autoStart: true,
-  activate: async (
-    app: JupyterFrontEnd,
-    serviceManager: ICompletionProviderManager
-  ): Promise<void> => {
-    class FooConnector extends DataConnector<
-      CompletionHandler.ICompletionItemsReply,
-      void,
-      CompletionHandler.IRequest
-    > {
-      fetch(
-        request: CompletionHandler.IRequest
-      ): Promise<CompletionHandler.ICompletionItemsReply> {
-        return Promise.resolve({
-          start: 3,
-          end: 3,
-          items: [
-            { label: 'fooModule', type: 'module' },
-            { label: 'barFunction', type: 'function' }
-          ]
-        });
-      }
-    }
-    class FooCompletionProvider implements ICompletionProvider {
-      connectorFactory(
-        options: CompletionConnector.IOptions
-      ): CompletionHandler.ICompletionItemsConnector {
-        return new FooConnector();
-      }
-      identifier = 'CompletionProvider:sample';
-      renderer = null;
-    }
-
-    serviceManager.registerProvider(new FooCompletionProvider());
-  }
-};
 
 const defaultProvider: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/completer-extension:base-service',
@@ -242,7 +198,6 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
  */
 const plugins: JupyterFrontEndPlugin<any>[] = [
   manager,
-  defaultProvider,
-  fooService
+  defaultProvider
 ];
 export default plugins;
