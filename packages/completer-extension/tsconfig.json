@@ -4,9 +4,7 @@
     "outDir": "lib",
     "rootDir": "src"
   },
-  "include": [
-    "src/*"
-  ],
+  "include": ["src/*"],
   "references": [
     {
       "path": "../application"
@@ -27,10 +25,10 @@
       "path": "../services"
     },
     {
-      "path": "../statedb"
+      "path": "../settingregistry"
     },
     {
-      "path": "../settingregistry"
+      "path": "../statedb"
     }
   ]
 }
