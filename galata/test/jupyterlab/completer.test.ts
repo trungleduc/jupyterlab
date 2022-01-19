@@ -50,9 +50,13 @@ test.describe('Completer', () => {
     await page.waitForTimeout(50);
     await page.keyboard.press('Tab');
 
-    const completer = page.locator(COMPLETER_SELECTOR);
+    let completer = page.locator(COMPLETER_SELECTOR);
     await completer.waitFor();
-    await page.waitForTimeout(500);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(50);
+    await page.keyboard.press('Tab');
+    completer = page.locator(COMPLETER_SELECTOR);
+    await page.waitForTimeout(100);
     await page.keyboard.type('g', { delay: 50 });
 
     const imageName = 'completer-filter.png';

@@ -79,7 +79,6 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
     const updateSetting = (settingValues: ISettingRegistry.ISettings): void => {
       const providersData = settingValues.get(AVAILABLE_PROVIDERS);
       const timeout = settingValues.get(PROVIDER_TIMEOUT);
-      console.log('timeout', timeout);
       manager.setTimeout(timeout.composite as number);
       const selectedProviders = providersData.user || providersData.composite;
       if (selectedProviders) {

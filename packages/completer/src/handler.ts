@@ -331,8 +331,8 @@ export class CompletionHandler implements IDisposable {
       for (const data of replies) {
         if (data) {
           items = items.concat(data.items);
-          start = data.start;
-          end = data.end;
+          start = start || data.start;
+          end = end || data.end;
         }
       }
 
