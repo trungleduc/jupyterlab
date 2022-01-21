@@ -478,11 +478,6 @@ export namespace CompletionHandler {
     T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem
   > {
     /**
-     * The id of provider..
-     */
-
-    provider?: string;
-    /**
      * The starting index for the substring being replaced by completion.
      */
     start: number;
