@@ -5,6 +5,8 @@ import { KernelMessage } from '@jupyterlab/services';
 import { ICompletionContext, ICompletionProvider } from '../tokens';
 import { CompletionHandler } from '../handler';
 import { JSONObject } from '@lumino/coreutils';
+import { Text } from '@jupyterlab/coreutils';
+import { Completer } from '../widget';
 
 export const KERNEL_PROVIDER_ID = 'CompletionProvider:kernel';
 /**
@@ -65,6 +67,48 @@ export class KernelCompleterProvider implements ICompletionProvider {
       end: response.cursor_end,
       items
     };
+  }
+
+  async resolve(
+    item: CompletionHandler.ICompletionItem,
+    context: ICompletionContext,
+    patch?: Completer.IPatch | null
+  ): Promise<CompletionHandler.ICompletionItem> {
+    const {editor, session} = context
+    if(session && editor){
+      let code = editor.model.value.text ;
+      console.log('old code', code);
+      
+      
+      const position = editor.getCursorPosition();
+      let offset = Text.jsIndexToCharIndex(editor.getOffsetAt(position), code);
+      const kernel = session.kernel
+      if (!code || !kernel) {
+        return Promise.resolve(item);
+      }
+      if(patch){
+        const {start, value} = patch
+        code = code.substring(0, start) + value;
+        offset = offset + value.length 
+      }
+      console.log('code', code, offset, patch, editor.getOffsetAt(position));
+      
+      const contents: KernelMessage.IInspectRequestMsg['content'] = {
+        code,
+        cursor_pos: offset,
+        detail_level: 0
+      };
+      const msg = await kernel.requestInspect(contents)
+      const value = msg.content;
+      if (value.status !== 'ok' || !value.found) {
+        return Promise.resolve(item);
+      }
+      console.log(value);
+      
+      item.documentation = value.data["text/plain"]  as string;
+      return Promise.resolve(item)
+    }
+    return Promise.resolve(item)
   }
 
   readonly identifier = KERNEL_PROVIDER_ID;

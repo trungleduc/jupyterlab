@@ -150,7 +150,6 @@ export class CompletionHandler implements IDisposable {
     }
 
     const patch = model.createPatch(val);
-
     if (!patch) {
       return;
     }
@@ -459,10 +458,13 @@ export namespace CompletionHandler {
     deprecated?: boolean;
 
     /**
-     * {Provider id will be added automatically.
+     * {Provider will be added automatically.
      */
 
-    provider?: string;
+    resolve?: (
+      el: CompletionHandler.ICompletionItem,
+      patch?: Completer.IPatch
+    ) => Promise<CompletionHandler.ICompletionItem>;
   }
 
   export type ICompletionItemsConnector = IDataConnector<

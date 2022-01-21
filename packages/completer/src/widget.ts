@@ -620,16 +620,34 @@ export class Completer extends Widget {
       return;
     }
     docPanel.textContent = '';
-    if (activeItem.documentation) {
+    const fillDocsContent = (activeItem: CompletionHandler.ICompletionItem) => {
+      if (!activeItem.documentation) {
+        docPanel!.setAttribute('style', 'display:none');
+        return;
+      }
       let node: HTMLElement;
       if (!this._renderer.createDocumentationNode) {
         node = Completer.defaultRenderer.createDocumentationNode(activeItem);
       } else {
         node = this._renderer.createDocumentationNode(activeItem);
       }
-      docPanel.appendChild(node);
-      docPanel.setAttribute('style', '');
+      docPanel!.appendChild(node);
+      docPanel!.setAttribute('style', '');
+    };
+
+    if (activeItem.documentation) {
+      fillDocsContent(activeItem);
+    } else if (!activeItem.documentation && activeItem.resolve) {
+      let patch : Completer.IPatch | undefined;
+      if(activeItem.insertText){
+        patch = this.model.createPatch(activeItem.insertText)
+      }
+      let resolvedItem = activeItem.resolve!(activeItem, patch);
+      resolvedItem.then(it => {
+        fillDocsContent(it);
+      });
     } else {
+      // Neither `documentation` nor `resolve`, just hide the docPanel.
       docPanel.setAttribute('style', 'display:none');
     }
   }

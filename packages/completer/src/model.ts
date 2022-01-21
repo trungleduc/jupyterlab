@@ -356,8 +356,7 @@ export class CompleterModel implements Completer.IModel {
   createPatch(patch: string): Completer.IPatch | undefined {
     const original = this._original;
     const cursor = this._cursor;
-    const current = this._current;
-
+    const current = this._current;    
     if (!original || !cursor || !current) {
       return undefined;
     }

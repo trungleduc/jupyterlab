@@ -1,4 +1,4 @@
-import { ICompletionContext, ICompletionProvider } from '.';
+import { Completer, ICompletionContext, ICompletionProvider } from '.';
 import { CompletionHandler } from './handler';
 import { IConnectorProxy } from './tokens';
 
@@ -36,7 +36,7 @@ export class ConnectorProxy implements IConnectorProxy {
       promise = provider.fetch(request, this._context).then(reply => {
         const items = reply.items.map(el => ({
           ...el,
-          provider: provider.identifier
+          resolve: this._resolveFactory(provider)
         }));
         return { ...reply, items };
       });
@@ -52,6 +52,12 @@ export class ConnectorProxy implements IConnectorProxy {
     const combinedPromise = Promise.all(promises);
     return combinedPromise;
   }
+
+  private _resolveFactory = (provider: ICompletionProvider) =>
+    provider.resolve
+      ? (el: CompletionHandler.ICompletionItem, patch?: Completer.IPatch) =>
+          provider.resolve!(el, this._context, patch)
+      : undefined;
 
   private _providers: Array<ICompletionProvider>;
   private _context: ICompletionContext;
