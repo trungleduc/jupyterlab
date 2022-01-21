@@ -64,6 +64,14 @@ export interface ICompletionProvider<
    * Renderer for provider's completions (optional).
    */
   renderer: Completer.IRenderer | null | undefined;
+
+  /**
+   * Given an incomplete (unresolved) completion item, resolve it by adding all missing details,
+   * such as lazy-fetched documentation.
+   *
+   * @param completion - the completion item to resolve
+   */
+  resolve?(completion: T, context: ICompletionContext): Promise<T>;
 }
 
 /**

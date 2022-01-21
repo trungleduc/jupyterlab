@@ -453,6 +453,12 @@ export namespace CompletionHandler {
      * Indicates if the item is deprecated.
      */
     deprecated?: boolean;
+
+    /**
+     * {Provider id will be added automatically.
+     */
+
+    provider?: string;
   }
 
   export type ICompletionItemsConnector = IDataConnector<
@@ -467,11 +473,6 @@ export namespace CompletionHandler {
   export interface ICompletionItemsReply<
     T extends CompletionHandler.ICompletionItem = CompletionHandler.ICompletionItem
   > {
-    /**
-     * The id of provider..
-     */
-
-    provider?: string;
     /**
      * The starting index for the substring being replaced by completion.
      */

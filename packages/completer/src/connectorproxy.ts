@@ -33,9 +33,13 @@ export class ConnectorProxy implements IConnectorProxy {
     let promises: Promise<CompletionHandler.ICompletionItemsReply | null>[] = [];
     for (const provider of this._providers) {
       let promise: Promise<CompletionHandler.ICompletionItemsReply | null>;
-      promise = provider
-        .fetch(request, this._context)
-        .then(reply => ({ ...reply, provider: provider.identifier }));
+      promise = provider.fetch(request, this._context).then(reply => {
+        const items = reply.items.map(el => ({
+          ...el,
+          provider: provider.identifier
+        }));
+        return { ...reply, items };
+      });
 
       const timeoutPromise = new Promise<CompletionHandler.ICompletionItemsReply | null>(
         resolve => {
