@@ -40,7 +40,7 @@ export interface ICompletionProvider<
   /**
    * Unique identifier of the provider
    */
-   readonly identifier: string;
+  readonly identifier: string;
 
   /**
    * Is completion provider applicable to specified context?

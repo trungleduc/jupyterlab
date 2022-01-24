@@ -8,9 +8,16 @@
       "title": "Installed completion providers",
       "description": "Configuration for installed completion providers, the keys of this dictionary are the identifiers of providers, the corresponding value is the priority rank of the provider. Providers with higher rank will be shown before the ones with lower rank, providers with negative rank are disabled.",
       "type": "object",
-      "properties": {},
-      "additionalProperties": true,
-      "default": {}
+      "patternProperties": {
+        "^.*$": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "default": {
+        "CompletionProvider:context": 100,
+        "CompletionProvider:kernel": 200
+      }
     },
     "providerTimeout": {
       "title": "Default timeout for a provider",
