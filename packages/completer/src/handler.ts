@@ -327,12 +327,16 @@ export class CompletionHandler implements IDisposable {
     return this._connector.fetch(request).then(replies => {
       let start = 0;
       let end = 0;
+      let skip = false;
       let items: CompletionHandler.ICompletionItem[] = [];
       for (const data of replies) {
         if (data) {
           items = items.concat(data.items);
-          start = start || data.start;
-          end = end || data.end;
+          if (!skip) {
+            start = data.start;
+            end = data.end;
+            skip = true;
+          }
         }
       }
 

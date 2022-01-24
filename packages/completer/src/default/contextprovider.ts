@@ -34,8 +34,8 @@ export class ContextCompleterProvider implements ICompletionProvider {
     });
   }
 
-  identifier = CONTEXT_PROVIDER_ID;
-  renderer = null;
+  readonly identifier = CONTEXT_PROVIDER_ID;
+  readonly renderer = null;
 }
 
 /**

@@ -47,10 +47,10 @@ const defaultProvider: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/completer-extension:base-service',
   requires: [ICompletionProviderManager],
   autoStart: true,
-  activate: async (
+  activate:(
     app: JupyterFrontEnd,
     serviceManager: ICompletionProviderManager
-  ): Promise<void> => {
+  ): void => {
     serviceManager.registerProvider(new ContextCompleterProvider());
     serviceManager.registerProvider(new KernelCompleterProvider());
   }
@@ -80,14 +80,13 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
       const providersData = settingValues.get(AVAILABLE_PROVIDERS);
       const timeout = settingValues.get(PROVIDER_TIMEOUT);
       manager.setTimeout(timeout.composite as number);
-      const selectedProviders = providersData.user || providersData.composite;
-      if (selectedProviders) {
-        const sortedProviders = Object.entries(selectedProviders)
-          .filter(val => val[1] >= 0)
-          .sort(([, rank1], [, rank2]) => rank2 - rank1)
-          .map(item => item[0]);
-        manager.activateProvider(sortedProviders);
-      }
+      const selectedProviders = providersData.user ?? providersData.composite;
+      const sortedProviders = Object.entries(selectedProviders ?? {})
+        .filter(val => val[1] >= 0)
+        .sort(([, rank1], [, rank2]) => rank2 - rank1)
+        .map(item => item[0]);
+      manager.activateProvider(sortedProviders);
+
     };
 
     app.restored.then(() => {

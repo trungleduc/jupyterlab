@@ -67,6 +67,6 @@ export class KernelCompleterProvider implements ICompletionProvider {
     };
   }
 
-  identifier = KERNEL_PROVIDER_ID;
-  renderer = null;
+  readonly identifier = KERNEL_PROVIDER_ID;
+  readonly renderer = null;
 }

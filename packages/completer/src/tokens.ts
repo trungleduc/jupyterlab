@@ -40,7 +40,7 @@ export interface ICompletionProvider<
   /**
    * Unique identifier of the provider
    */
-  identifier: string;
+   readonly identifier: string;
 
   /**
    * Is completion provider applicable to specified context?
@@ -63,7 +63,7 @@ export interface ICompletionProvider<
   /**
    * Renderer for provider's completions (optional).
    */
-  renderer: Completer.IRenderer | null | undefined;
+  readonly renderer: Completer.IRenderer | null | undefined;
 
   /**
    * Given an incomplete (unresolved) completion item, resolve it by adding all missing details,
