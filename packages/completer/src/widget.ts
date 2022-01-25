@@ -605,7 +605,10 @@ export class Completer extends Widget {
    * Update the display-state and contents of the documentation panel
    */
   private _updateDocPanel(
-    resolvedItem: Promise<CompletionHandler.ICompletionItem> | null | undefined
+    resolvedItem:
+      | Promise<CompletionHandler.ICompletionItem | null>
+      | null
+      | undefined
   ): void {
     let docPanel = this.node.querySelector('.jp-Completer-docpanel');
     if (!docPanel) {
@@ -616,30 +619,23 @@ export class Completer extends Widget {
       docPanel.setAttribute('style', 'display:none');
       return;
     }
-
     docPanel.textContent = '';
-    const fillDocsContent = (activeItem: CompletionHandler.ICompletionItem) => {
-      if (!activeItem.documentation) {
-        docPanel!.setAttribute('style', 'display:none');
-        return;
-      }
-      let node: HTMLElement;
-      if (!this._renderer.createDocumentationNode) {
-        node = Completer.defaultRenderer.createDocumentationNode(activeItem);
-      } else {
-        node = this._renderer.createDocumentationNode(activeItem);
-      }
-      docPanel!.appendChild(node);
-      docPanel!.setAttribute('style', '');
-    };
-
-    resolvedItem.then(activeItem => {
-      if (activeItem.documentation) {
-        fillDocsContent(activeItem);
-      } else {
-        docPanel!.setAttribute('style', 'display:none');
-      }
-    });
+    resolvedItem
+      .then(activeItem => {
+        if (!activeItem) {
+          return;
+        }
+        if (activeItem.documentation) {
+          let node: HTMLElement;
+          const nodeRenderer = this._renderer.createDocumentationNode ?? Completer.defaultRenderer.createDocumentationNode
+          node = nodeRenderer(activeItem);
+          docPanel!.appendChild(node);
+          docPanel!.setAttribute('style', '');
+        } else {
+          docPanel!.setAttribute('style', 'display:none');
+        }
+      })
+      .catch(e => console.error(e));
   }
 
   private _activeIndex = 0;
@@ -759,9 +755,15 @@ export namespace Completer {
     items(): IIterator<IItem>;
 
     /**
-     * Lazy load missing data of item at index `activeIndex`.
-     */    
-    resolveItem(activeIndex: number): Promise<CompletionHandler.ICompletionItem> | null
+     * Lazy load missing data of item at `activeIndex`.
+     * @param {number} activeIndex - index of item
+     * @return Return `null` if the completion item with `activeIndex` index can not be found.
+     *  Return a promise of `null` of another `resolveItem` is called. Otherwise return the 
+     * promise of resolved completion item. 
+     */
+    resolveItem(
+      activeIndex: number
+    ): Promise<CompletionHandler.ICompletionItem | null> | null;
 
     /**
      * Get the unfiltered options in a completer menu.

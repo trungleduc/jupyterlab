@@ -356,7 +356,7 @@ export class CompleterModel implements Completer.IModel {
   createPatch(patch: string): Completer.IPatch | undefined {
     const original = this._original;
     const cursor = this._cursor;
-    const current = this._current;    
+    const current = this._current;
     if (!original || !cursor || !current) {
       return undefined;
     }
@@ -458,7 +458,17 @@ export class CompleterModel implements Completer.IModel {
     }));
   }
 
-  resolveItem(activeIndex: number): Promise<CompletionHandler.ICompletionItem> | null {
+  /**
+   * Lazy load missing data of item at `activeIndex`.
+   * @param {number} activeIndex - index of item
+   * @return Return `null` if the completion item with `activeIndex` index can not be found.
+   *  Return a promise of `null` of another `resolveItem` is called. Otherwise return the
+   * promise of resolved completion item.
+   */
+  resolveItem(
+    activeIndex: number
+  ): Promise<CompletionHandler.ICompletionItem | null> | null {
+    const current = ++this._resolvingItem;
     let resolvedItem: Promise<CompletionHandler.ICompletionItem> | null = null;
     if (!this.completionItems) {
       return null;
@@ -478,13 +488,21 @@ export class CompleterModel implements Completer.IModel {
     } else {
       resolvedItem = Promise.resolve(completionItem);
     }
-    return resolvedItem.then(activeItem => {         
-      Object.assign(completionItem, activeItem)
-      completionItem.resolve = undefined;
-      return activeItem;
-    });
+    return resolvedItem
+      .then(activeItem => {
+        Object.assign(completionItem, activeItem);
+        completionItem.resolve = undefined;
+        if (current !== this._resolvingItem) {
+          return Promise.resolve(null);
+        }
+        return activeItem;
+      })
+      .catch(e => {
+        console.error(e);
+        // Failed to resolve missing data, return the original item.
+        return completionItem;
+      });
   }
-  
 
   /**
    * Reset the state of the model.
@@ -512,6 +530,11 @@ export class CompleterModel implements Completer.IModel {
   private _typeMap: Completer.TypeMap = {};
   private _orderedTypes: string[] = [];
   private _stateChanged = new Signal<this, void>(this);
+
+  /**
+   * A counter to cancel ongoing `resolveItem` call. 
+   */
+  private _resolvingItem = 0;
 }
 
 /**

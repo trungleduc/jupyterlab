@@ -76,9 +76,7 @@ export class KernelCompleterProvider implements ICompletionProvider {
   ): Promise<CompletionHandler.ICompletionItem> {
     const {editor, session} = context
     if(session && editor){
-      let code = editor.model.value.text ;
-      // console.log('old code', code);
-      
+      let code = editor.model.value.text ;    
       
       const position = editor.getCursorPosition();
       let offset = Text.jsIndexToCharIndex(editor.getOffsetAt(position), code);
@@ -103,9 +101,10 @@ export class KernelCompleterProvider implements ICompletionProvider {
       if (value.status !== 'ok' || !value.found) {
         return item;
       }
-      console.log(value);
+      console.log('kernel data', value.data);
       
       item.documentation = value.data["text/plain"]  as string;
+      await new Promise(r => setTimeout(r, 2000));
       return item
     }
     return item
