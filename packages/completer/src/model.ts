@@ -458,6 +458,34 @@ export class CompleterModel implements Completer.IModel {
     }));
   }
 
+  resolveItem(activeIndex: number): Promise<CompletionHandler.ICompletionItem> | null {
+    let resolvedItem: Promise<CompletionHandler.ICompletionItem> | null = null;
+    if (!this.completionItems) {
+      return null;
+    }
+
+    let completionItems = this.completionItems();
+    if (!completionItems || !completionItems[activeIndex]) {
+      return null;
+    }
+    let completionItem = completionItems[activeIndex];
+    if (completionItem.resolve) {
+      let patch: Completer.IPatch | undefined;
+      if (completionItem.insertText) {
+        patch = this.createPatch(completionItem.insertText);
+      }
+      resolvedItem = completionItem.resolve(patch);
+    } else {
+      resolvedItem = Promise.resolve(completionItem);
+    }
+    return resolvedItem.then(activeItem => {         
+      Object.assign(completionItem, activeItem)
+      completionItem.resolve = undefined;
+      return activeItem;
+    });
+  }
+  
+
   /**
    * Reset the state of the model.
    */

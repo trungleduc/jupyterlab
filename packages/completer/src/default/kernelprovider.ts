@@ -77,7 +77,7 @@ export class KernelCompleterProvider implements ICompletionProvider {
     const {editor, session} = context
     if(session && editor){
       let code = editor.model.value.text ;
-      console.log('old code', code);
+      // console.log('old code', code);
       
       
       const position = editor.getCursorPosition();
@@ -91,7 +91,7 @@ export class KernelCompleterProvider implements ICompletionProvider {
         code = code.substring(0, start) + value;
         offset = offset + value.length 
       }
-      console.log('code', code, offset, patch, editor.getOffsetAt(position));
+      // console.log('code', code, offset, patch, editor.getOffsetAt(position));
       
       const contents: KernelMessage.IInspectRequestMsg['content'] = {
         code,
@@ -101,14 +101,14 @@ export class KernelCompleterProvider implements ICompletionProvider {
       const msg = await kernel.requestInspect(contents)
       const value = msg.content;
       if (value.status !== 'ok' || !value.found) {
-        return Promise.resolve(item);
+        return item;
       }
       console.log(value);
       
       item.documentation = value.data["text/plain"]  as string;
-      return Promise.resolve(item)
+      return item
     }
-    return Promise.resolve(item)
+    return item
   }
 
   readonly identifier = KERNEL_PROVIDER_ID;

@@ -252,7 +252,8 @@ export class Completer extends Widget {
     let docPanel = document.createElement('div');
     docPanel.className = 'jp-Completer-docpanel';
     node.appendChild(docPanel);
-    this._updateDocPanel();
+    const resolvedItem = this.model?.resolveItem(this._activeIndex);
+    this._updateDocPanel(resolvedItem);
 
     // If this is the first time the current completer session has loaded,
     // populate any initial subset match.
@@ -402,7 +403,9 @@ export class Completer extends Widget {
     ) as Element;
     ElementExt.scrollIntoViewIfNeeded(completionList, active);
     this._indexChanged.emit(this._activeIndex);
-    this._updateDocPanel();
+
+    const resolvedItem = this.model?.resolveItem(this._activeIndex);
+    this._updateDocPanel(resolvedItem);
   }
 
   /**
@@ -601,24 +604,19 @@ export class Completer extends Widget {
   /**
    * Update the display-state and contents of the documentation panel
    */
-  private _updateDocPanel(): void {
+  private _updateDocPanel(
+    resolvedItem: Promise<CompletionHandler.ICompletionItem> | null | undefined
+  ): void {
     let docPanel = this.node.querySelector('.jp-Completer-docpanel');
     if (!docPanel) {
       return;
     }
-    if (!this.model?.completionItems) {
-      return;
-    }
-    let items = this.model?.completionItems();
-    if (!items) {
+
+    if (!resolvedItem) {
       docPanel.setAttribute('style', 'display:none');
       return;
     }
-    let activeItem = items[this._activeIndex];
-    if (!activeItem) {
-      docPanel.setAttribute('style', 'display:none');
-      return;
-    }
+
     docPanel.textContent = '';
     const fillDocsContent = (activeItem: CompletionHandler.ICompletionItem) => {
       if (!activeItem.documentation) {
@@ -635,21 +633,13 @@ export class Completer extends Widget {
       docPanel!.setAttribute('style', '');
     };
 
-    if (activeItem.documentation) {
-      fillDocsContent(activeItem);
-    } else if (!activeItem.documentation && activeItem.resolve) {
-      let patch : Completer.IPatch | undefined;
-      if(activeItem.insertText){
-        patch = this.model.createPatch(activeItem.insertText)
+    resolvedItem.then(activeItem => {
+      if (activeItem.documentation) {
+        fillDocsContent(activeItem);
+      } else {
+        docPanel!.setAttribute('style', 'display:none');
       }
-      let resolvedItem = activeItem.resolve!(activeItem, patch);
-      resolvedItem.then(it => {
-        fillDocsContent(it);
-      });
-    } else {
-      // Neither `documentation` nor `resolve`, just hide the docPanel.
-      docPanel.setAttribute('style', 'display:none');
-    }
+    });
   }
 
   private _activeIndex = 0;
@@ -767,6 +757,11 @@ export namespace Completer {
      * Get the of visible items in the completer menu.
      */
     items(): IIterator<IItem>;
+
+    /**
+     * Lazy load missing data of item at index `activeIndex`.
+     */    
+    resolveItem(activeIndex: number): Promise<CompletionHandler.ICompletionItem> | null
 
     /**
      * Get the unfiltered options in a completer menu.

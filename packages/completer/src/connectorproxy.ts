@@ -36,7 +36,7 @@ export class ConnectorProxy implements IConnectorProxy {
       promise = provider.fetch(request, this._context).then(reply => {
         const items = reply.items.map(el => ({
           ...el,
-          resolve: this._resolveFactory(provider)
+          resolve: this._resolveFactory(provider, el)
         }));
         return { ...reply, items };
       });
@@ -53,9 +53,9 @@ export class ConnectorProxy implements IConnectorProxy {
     return combinedPromise;
   }
 
-  private _resolveFactory = (provider: ICompletionProvider) =>
+  private _resolveFactory = (provider: ICompletionProvider, el: CompletionHandler.ICompletionItem) =>
     provider.resolve
-      ? (el: CompletionHandler.ICompletionItem, patch?: Completer.IPatch) =>
+      ? (patch?: Completer.IPatch) =>
           provider.resolve!(el, this._context, patch)
       : undefined;
 

@@ -142,7 +142,7 @@ export class CompletionHandler implements IDisposable {
   /**
    * Handle a completion selected signal from the completion widget.
    */
-  protected onCompletionSelected(completer: Completer, val: string): void {
+  protected onCompletionSelected(completer: Completer, val: string): void {    
     const model = completer.model;
     const editor = this._editor;
     if (!editor || !model) {
@@ -457,12 +457,8 @@ export namespace CompletionHandler {
      */
     deprecated?: boolean;
 
-    /**
-     * {Provider will be added automatically.
-     */
-
     resolve?: (
-      el: CompletionHandler.ICompletionItem,
+      // el: CompletionHandler.ICompletionItem,
       patch?: Completer.IPatch
     ) => Promise<CompletionHandler.ICompletionItem>;
   }
