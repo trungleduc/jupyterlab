@@ -289,7 +289,7 @@ namespace Private {
     const code = editor.model.value.text;
     const position = editor.getCursorPosition();
     const offset = Text.jsIndexToCharIndex(editor.getOffsetAt(position), code);
-    console.log('tooltip', code, position, offset);
+    
     
     // Clear hints if the new text value is empty or kernel is unavailable.
     if (!code || !kernel) {

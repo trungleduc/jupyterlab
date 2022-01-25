@@ -467,16 +467,16 @@ export class CompleterModel implements Completer.IModel {
    */
   resolveItem(
     activeIndex: number
-  ): Promise<CompletionHandler.ICompletionItem | null> | null {
+  ): Promise<CompletionHandler.ICompletionItem | null> | undefined {
     const current = ++this._resolvingItem;
-    let resolvedItem: Promise<CompletionHandler.ICompletionItem> | null = null;
+    let resolvedItem: Promise<CompletionHandler.ICompletionItem>;
     if (!this.completionItems) {
-      return null;
+      return undefined;
     }
 
     let completionItems = this.completionItems();
     if (!completionItems || !completionItems[activeIndex]) {
-      return null;
+      return undefined;
     }
     let completionItem = completionItems[activeIndex];
     if (completionItem.resolve) {

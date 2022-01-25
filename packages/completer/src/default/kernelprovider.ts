@@ -89,8 +89,7 @@ export class KernelCompleterProvider implements ICompletionProvider {
         code = code.substring(0, start) + value;
         offset = offset + value.length 
       }
-      // console.log('code', code, offset, patch, editor.getOffsetAt(position));
-      
+     
       const contents: KernelMessage.IInspectRequestMsg['content'] = {
         code,
         cursor_pos: offset,
@@ -100,11 +99,9 @@ export class KernelCompleterProvider implements ICompletionProvider {
       const value = msg.content;
       if (value.status !== 'ok' || !value.found) {
         return item;
-      }
-      console.log('kernel data', value.data);
-      
+      }      
       item.documentation = value.data["text/plain"]  as string;
-      await new Promise(r => setTimeout(r, 2000));
+      // await new Promise(r => setTimeout(r, 2000));
       return item
     }
     return item

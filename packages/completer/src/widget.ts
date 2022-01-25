@@ -12,6 +12,7 @@ import { Message } from '@lumino/messaging';
 import { ISignal, Signal } from '@lumino/signaling';
 import { Widget } from '@lumino/widgets';
 import { CompletionHandler } from './handler';
+import {renderText} from '@jupyterlab/rendermime'
 
 /**
  * The class name added to completer menu items.
@@ -483,7 +484,7 @@ export class Completer extends Widget {
   /**
    * Handle mousedown events for the widget.
    */
-  private _evtMousedown(event: MouseEvent) {
+  private _evtMousedown(event: MouseEvent) {   
     if (this.isHidden || !this._editor) {
       return;
     }
@@ -602,12 +603,22 @@ export class Completer extends Widget {
   }
 
   /**
+   * Create a loading bar element for document panel.
+   */
+  private _createLoadingBar(): HTMLElement{
+    const loadingContainer = document.createElement('div')
+    loadingContainer.classList.add('jp-Completer-loading-bar-container')
+    const loadingBar = document.createElement('div')
+    loadingBar.classList.add('jp-Completer-loading-bar')
+    loadingContainer.append(loadingBar)
+    return loadingContainer
+  }
+  /**
    * Update the display-state and contents of the documentation panel
    */
   private _updateDocPanel(
     resolvedItem:
       | Promise<CompletionHandler.ICompletionItem | null>
-      | null
       | undefined
   ): void {
     let docPanel = this.node.querySelector('.jp-Completer-docpanel');
@@ -620,6 +631,7 @@ export class Completer extends Widget {
       return;
     }
     docPanel.textContent = '';
+    docPanel.appendChild(this._createLoadingBar());
     resolvedItem
       .then(activeItem => {
         if (!activeItem) {
@@ -629,6 +641,7 @@ export class Completer extends Widget {
           let node: HTMLElement;
           const nodeRenderer = this._renderer.createDocumentationNode ?? Completer.defaultRenderer.createDocumentationNode
           node = nodeRenderer(activeItem);
+          docPanel!.textContent = '';
           docPanel!.appendChild(node);
           docPanel!.setAttribute('style', '');
         } else {
@@ -757,13 +770,13 @@ export namespace Completer {
     /**
      * Lazy load missing data of item at `activeIndex`.
      * @param {number} activeIndex - index of item
-     * @return Return `null` if the completion item with `activeIndex` index can not be found.
+     * @return Return `undefined` if the completion item with `activeIndex` index can not be found.
      *  Return a promise of `null` of another `resolveItem` is called. Otherwise return the 
      * promise of resolved completion item. 
      */
     resolveItem(
       activeIndex: number
-    ): Promise<CompletionHandler.ICompletionItem | null> | null;
+    ): Promise<CompletionHandler.ICompletionItem | null> | undefined;
 
     /**
      * Get the unfiltered options in a completer menu.
@@ -941,9 +954,13 @@ export namespace Completer {
     createDocumentationNode(
       activeItem: CompletionHandler.ICompletionItem
     ): HTMLElement {
-      let pre = document.createElement('pre');
-      pre.textContent = activeItem.documentation || '';
-      return pre;
+      const host = document.createElement('div');
+      host.classList.add('jp-RenderedText')
+      const sanitizer = {sanitize: (dirty: string) => dirty}
+      const source = activeItem.documentation || '';
+
+      renderText({ host, sanitizer, source })
+      return host;
     }
 
     /**
