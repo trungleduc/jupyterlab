@@ -12,7 +12,7 @@ import { Message } from '@lumino/messaging';
 import { ISignal, Signal } from '@lumino/signaling';
 import { Widget } from '@lumino/widgets';
 import { CompletionHandler } from './handler';
-import {renderText} from '@jupyterlab/rendermime'
+import { renderText } from '@jupyterlab/rendermime';
 
 /**
  * The class name added to completer menu items.
@@ -61,6 +61,7 @@ export class Completer extends Widget {
   constructor(options: Completer.IOptions) {
     super({ node: document.createElement('div') });
     this._renderer = options.renderer || Completer.defaultRenderer;
+
     this.model = options.model || null;
     this.editor = options.editor || null;
     this.addClass('jp-Completer');
@@ -125,6 +126,10 @@ export class Completer extends Widget {
     if (this._model) {
       this._model.stateChanged.connect(this.onModelStateChanged, this);
     }
+  }
+
+  set showDocsPanel(showDoc: boolean){
+    this._showDoc  = showDoc ?? true;
   }
 
   /**
@@ -250,9 +255,11 @@ export class Completer extends Widget {
     active.classList.add(ACTIVE_CLASS);
 
     // Add the documentation panel
-    let docPanel = document.createElement('div');
-    docPanel.className = 'jp-Completer-docpanel';
-    node.appendChild(docPanel);
+    if(this._showDoc){
+      let docPanel = document.createElement('div');
+      docPanel.className = 'jp-Completer-docpanel';
+      node.appendChild(docPanel);
+    }
     const resolvedItem = this.model?.resolveItem(this._activeIndex);
     this._updateDocPanel(resolvedItem);
 
@@ -484,7 +491,7 @@ export class Completer extends Widget {
   /**
    * Handle mousedown events for the widget.
    */
-  private _evtMousedown(event: MouseEvent) {   
+  private _evtMousedown(event: MouseEvent) {
     if (this.isHidden || !this._editor) {
       return;
     }
@@ -605,21 +612,19 @@ export class Completer extends Widget {
   /**
    * Create a loading bar element for document panel.
    */
-  private _createLoadingBar(): HTMLElement{
-    const loadingContainer = document.createElement('div')
-    loadingContainer.classList.add('jp-Completer-loading-bar-container')
-    const loadingBar = document.createElement('div')
-    loadingBar.classList.add('jp-Completer-loading-bar')
-    loadingContainer.append(loadingBar)
-    return loadingContainer
+  private _createLoadingBar(): HTMLElement {
+    const loadingContainer = document.createElement('div');
+    loadingContainer.classList.add('jp-Completer-loading-bar-container');
+    const loadingBar = document.createElement('div');
+    loadingBar.classList.add('jp-Completer-loading-bar');
+    loadingContainer.append(loadingBar);
+    return loadingContainer;
   }
   /**
    * Update the display-state and contents of the documentation panel
    */
   private _updateDocPanel(
-    resolvedItem:
-      | Promise<CompletionHandler.ICompletionItem | null>
-      | undefined
+    resolvedItem: Promise<CompletionHandler.ICompletionItem | null> | undefined
   ): void {
     let docPanel = this.node.querySelector('.jp-Completer-docpanel');
     if (!docPanel) {
@@ -639,7 +644,9 @@ export class Completer extends Widget {
         }
         if (activeItem.documentation) {
           let node: HTMLElement;
-          const nodeRenderer = this._renderer.createDocumentationNode ?? Completer.defaultRenderer.createDocumentationNode
+          const nodeRenderer =
+            this._renderer.createDocumentationNode ??
+            Completer.defaultRenderer.createDocumentationNode;
           node = nodeRenderer(activeItem);
           docPanel!.textContent = '';
           docPanel!.appendChild(node);
@@ -660,6 +667,7 @@ export class Completer extends Widget {
   private _visibilityChanged = new Signal<this, void>(this);
   private _indexChanged = new Signal<this, number>(this);
   private _lastSubsetMatch: string = '';
+  private _showDoc: boolean;
 }
 
 export namespace Completer {
@@ -686,6 +694,11 @@ export namespace Completer {
      * The renderer for the completer widget nodes.
      */
     renderer?: IRenderer;
+
+    /**
+     * Flag to show or hide the document panel.
+     */
+    showDoc?: boolean;
   }
 
   /**
@@ -771,8 +784,8 @@ export namespace Completer {
      * Lazy load missing data of item at `activeIndex`.
      * @param {number} activeIndex - index of item
      * @return Return `undefined` if the completion item with `activeIndex` index can not be found.
-     *  Return a promise of `null` of another `resolveItem` is called. Otherwise return the 
-     * promise of resolved completion item. 
+     *  Return a promise of `null` of another `resolveItem` is called. Otherwise return the
+     * promise of resolved completion item.
      */
     resolveItem(
       activeIndex: number
@@ -955,11 +968,11 @@ export namespace Completer {
       activeItem: CompletionHandler.ICompletionItem
     ): HTMLElement {
       const host = document.createElement('div');
-      host.classList.add('jp-RenderedText')
-      const sanitizer = {sanitize: (dirty: string) => dirty}
+      host.classList.add('jp-RenderedText');
+      const sanitizer = { sanitize: (dirty: string) => dirty };
       const source = activeItem.documentation || '';
 
-      renderText({ host, sanitizer, source })
+      renderText({ host, sanitizer, source });
       return host;
     }
 

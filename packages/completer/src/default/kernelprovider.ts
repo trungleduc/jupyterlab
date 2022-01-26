@@ -101,7 +101,7 @@ export class KernelCompleterProvider implements ICompletionProvider {
         return item;
       }      
       item.documentation = value.data["text/plain"]  as string;
-      // await new Promise(r => setTimeout(r, 2000));
+      // await new Promise(r => setTimeout(r, 3000));
       return item
     }
     return item
