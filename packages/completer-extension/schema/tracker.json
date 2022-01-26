@@ -30,6 +30,12 @@
       "description": "Flag to show or hide the document panel of completer widget, this configuration is applied to all providers. If a provider does not provide the documentation response, the panel will be hidden for this provider.",
       "type": "boolean",
       "default": true
+    },
+    "continuousHinting": {
+      "title": "Continuous hinting.",
+      "description": "Flag to enable or disable continuous hinting.",
+      "type": "boolean",
+      "default": false
     }
   },
   "additionalProperties": false,

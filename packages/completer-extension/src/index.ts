@@ -76,6 +76,7 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
     const AVAILABLE_PROVIDERS = 'availableProviders';
     const PROVIDER_TIMEOUT = 'providerTimeout';
     const SHOW_DOCUMENT_PANEL = 'showDocumentPanel';
+    const CONTINUOUS_HINTING = 'continuousHinting';
     const manager = new CompletionProviderManager();
     const updateSetting = (
       settingValues: ISettingRegistry.ISettings,
@@ -83,9 +84,11 @@ const manager: JupyterFrontEndPlugin<ICompletionProviderManager> = {
     ): void => {
       const providersData = settingValues.get(AVAILABLE_PROVIDERS);
       const timeout = settingValues.get(PROVIDER_TIMEOUT);
-      const showDoc = settingValues.get(SHOW_DOCUMENT_PANEL)      
+      const showDoc = settingValues.get(SHOW_DOCUMENT_PANEL);
+      const continuousHinting = settingValues.get(CONTINUOUS_HINTING);
       manager.setTimeout(timeout.composite as number);
       manager.setShowDocumentFlag(showDoc.composite as boolean);
+      manager.setContinuousHinting(continuousHinting.composite as boolean);
       const selectedProviders = providersData.user ?? providersData.composite;
       const sortedProviders = Object.entries(selectedProviders ?? {})
         .filter(val => val[1] >= 0 && availableProviders.includes(val[0]))

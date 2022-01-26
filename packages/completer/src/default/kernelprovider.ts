@@ -61,7 +61,6 @@ export class KernelCompleterProvider implements ICompletionProvider {
         items.push({ label });
       }
     });
-
     return {
       start: response.cursor_start,
       end: response.cursor_end,
@@ -74,37 +73,37 @@ export class KernelCompleterProvider implements ICompletionProvider {
     context: ICompletionContext,
     patch?: Completer.IPatch | null
   ): Promise<CompletionHandler.ICompletionItem> {
-    const {editor, session} = context
-    if(session && editor){
-      let code = editor.model.value.text ;    
-      
+    const { editor, session } = context;
+    if (session && editor) {
+      let code = editor.model.value.text;
+
       const position = editor.getCursorPosition();
       let offset = Text.jsIndexToCharIndex(editor.getOffsetAt(position), code);
-      const kernel = session.kernel
+      const kernel = session.kernel;
       if (!code || !kernel) {
         return Promise.resolve(item);
       }
-      if(patch){
-        const {start, value} = patch
+      if (patch) {
+        const { start, value } = patch;
         code = code.substring(0, start) + value;
-        offset = offset + value.length 
+        offset = offset + value.length;
       }
-     
+
       const contents: KernelMessage.IInspectRequestMsg['content'] = {
         code,
         cursor_pos: offset,
         detail_level: 0
       };
-      const msg = await kernel.requestInspect(contents)
+      const msg = await kernel.requestInspect(contents);
       const value = msg.content;
       if (value.status !== 'ok' || !value.found) {
         return item;
-      }      
-      item.documentation = value.data["text/plain"]  as string;
+      }
+      item.documentation = value.data['text/plain'] as string;
       // await new Promise(r => setTimeout(r, 3000));
-      return item
+      return item;
     }
-    return item
+    return item;
   }
 
   readonly identifier = KERNEL_PROVIDER_ID;

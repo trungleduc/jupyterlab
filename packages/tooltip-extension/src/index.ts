@@ -283,14 +283,11 @@ namespace Private {
    */
   export function fetch(options: IFetchOptions): Promise<JSONObject> {
     const { detail, editor, kernel } = options;
-    console.log('detail', detail);
-    console.log('editor', editor);
-    
+
     const code = editor.model.value.text;
     const position = editor.getCursorPosition();
     const offset = Text.jsIndexToCharIndex(editor.getOffsetAt(position), code);
-    
-    
+
     // Clear hints if the new text value is empty or kernel is unavailable.
     if (!code || !kernel) {
       return Promise.reject(void 0);

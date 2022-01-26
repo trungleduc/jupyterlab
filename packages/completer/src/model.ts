@@ -532,7 +532,7 @@ export class CompleterModel implements Completer.IModel {
   private _stateChanged = new Signal<this, void>(this);
 
   /**
-   * A counter to cancel ongoing `resolveItem` call. 
+   * A counter to cancel ongoing `resolveItem` call.
    */
   private _resolvingItem = 0;
 }

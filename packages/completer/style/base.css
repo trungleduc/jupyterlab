@@ -197,10 +197,10 @@
 }
 
 @keyframes jp-Completer-loading {
- 0% {
-  transform:translateX(0)
- }
- to {
-  transform:translateX(400%)
- }
+  0% {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(400%);
+  }
 }

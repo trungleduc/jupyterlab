@@ -71,7 +71,11 @@ export interface ICompletionProvider<
    *
    * @param completion - the completion item to resolve
    */
-  resolve?(completion: T, context: ICompletionContext, patch?: Completer.IPatch| null): Promise<T>;
+  resolve?(
+    completion: T,
+    context: ICompletionContext,
+    patch?: Completer.IPatch | null
+  ): Promise<T>;
 }
 
 /**
