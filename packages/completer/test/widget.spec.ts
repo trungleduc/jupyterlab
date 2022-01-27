@@ -54,7 +54,7 @@ class CustomRenderer extends Completer.Renderer {
   createDocumentationNode(
     item: CompletionHandler.ICompletionItem
   ): HTMLElement {
-    const element = super.createDocumentationNode!(item);
+    const element = super.createDocumentationNode!(item);   
     element.classList.add(TEST_DOC_CLASS);
     return element;
   }
@@ -121,7 +121,7 @@ describe('completer/widget', () => {
         );
       });
 
-      it('should accept completion items with a renderer', () => {
+      it('should accept completion items with a renderer', async () => {
         let options: Completer.IOptions = {
           editor: null,
           model: new CompleterModel(),
@@ -132,17 +132,19 @@ describe('completer/widget', () => {
           { label: 'bar' }
         ]);
 
-        let widget = new Completer(options);
+        let widget = new Completer(options);        
         expect(widget).toBeInstanceOf(Completer);
+        widget.showDocsPanel = true;
         MessageLoop.sendMessage(widget, Widget.Msg.UpdateRequest);
-
         let items = widget.node.querySelectorAll(`.${ITEM_CLASS}`);
         expect(items).toHaveLength(2);
         expect(Array.from(items[0].classList)).toEqual(
           expect.arrayContaining([TEST_ITEM_CLASS])
         );
-
-        let panel = widget.node.querySelector(`.${DOC_PANEL_CLASS}`)!;
+        // Since the document is lazy loaded, wait a tick to allow the 
+        // event loop remove the loading animation.
+        await new Promise(r => setTimeout(r, 10)); 
+        let panel = widget.node.querySelector(`.${DOC_PANEL_CLASS}`)!;        
         expect(panel.children).toHaveLength(1);
         expect(Array.from(panel.firstElementChild!.classList)).toEqual(
           expect.arrayContaining([TEST_DOC_CLASS])
