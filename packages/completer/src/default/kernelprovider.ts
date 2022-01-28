@@ -7,6 +7,7 @@ import { CompletionHandler } from '../handler';
 import { JSONObject } from '@lumino/coreutils';
 import { Text } from '@jupyterlab/coreutils';
 import { Completer } from '../widget';
+import { IObservableString } from '@jupyterlab/observables';
 
 export const KERNEL_PROVIDER_ID = 'CompletionProvider:kernel';
 /**
@@ -100,10 +101,20 @@ export class KernelCompleterProvider implements ICompletionProvider {
         return item;
       }
       item.documentation = value.data['text/plain'] as string;
-      // await new Promise(r => setTimeout(r, 3000));
       return item;
     }
     return item;
+  }
+
+  shouldShowContinuousHint(visible: boolean, changed: IObservableString.IChangedArgs): boolean {
+    if(changed.type === 'remove'){
+      return false
+    }
+    if(changed.value === '.'){
+      return true
+    }
+    
+    return !visible && changed.value.replace(/\s+/g, '').length > 0
   }
 
   readonly identifier = KERNEL_PROVIDER_ID;

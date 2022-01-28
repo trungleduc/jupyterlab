@@ -291,9 +291,7 @@ export class CompletionHandler implements IDisposable {
     }
     if (
       this._continuousHinting &&
-      this.completer.isHidden &&
-      changed.type !== 'remove' &&
-      changed.value.replace(/\s+/g, '').length > 0
+      this._connector.shouldShowContinuousHint(this.completer.isVisible, changed)
     ) {
       this._makeRequest(editor.getCursorPosition());
     }

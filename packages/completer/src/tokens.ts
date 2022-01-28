@@ -8,6 +8,7 @@ import { Session } from '@jupyterlab/services';
 import { Completer } from './widget';
 import { IDocumentWidget } from '@jupyterlab/docregistry';
 import { CodeConsole } from '@jupyterlab/console';
+import { IObservableString } from '@jupyterlab/observables';
 
 /**
  * The context which will be passed to the `fetch` function
@@ -76,6 +77,20 @@ export interface ICompletionProvider<
     context: ICompletionContext,
     patch?: Completer.IPatch | null
   ): Promise<T>;
+
+  /**
+   * If users enable `continuousHinting` in setting, this method is 
+   * called on text changed event of `CodeMirror` to check if the
+   * completion items should be shown.
+   *
+   * @param  completerIsVisible - Current visibility status of the
+   *  completer widget0
+   * @param  changed - changed text.
+   */
+  shouldShowContinuousHint?(
+    completerIsVisible: boolean,
+    changed: IObservableString.IChangedArgs
+  ): boolean;
 }
 
 /**
@@ -94,4 +109,8 @@ export interface IConnectorProxy {
   fetch(
     request: CompletionHandler.IRequest
   ): Promise<Array<CompletionHandler.ICompletionItemsReply | null>>;
+  shouldShowContinuousHint(
+    completerIsVisible: boolean,
+    changed: IObservableString.IChangedArgs
+  ): boolean;
 }

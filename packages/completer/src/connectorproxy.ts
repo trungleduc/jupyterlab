@@ -1,3 +1,4 @@
+import { IObservableString } from '@jupyterlab/observables';
 import { Completer, ICompletionContext, ICompletionProvider } from '.';
 import { CompletionHandler } from './handler';
 import { IConnectorProxy } from './tokens';
@@ -55,6 +56,30 @@ export class ConnectorProxy implements IConnectorProxy {
     }
     const combinedPromise = Promise.all(promises);
     return combinedPromise;
+  }
+
+  public shouldShowContinuousHint(
+    completerIsVisible: boolean,
+    changed: IObservableString.IChangedArgs
+  ): boolean {
+    if (this._providers[0].shouldShowContinuousHint) {
+      return this._providers[0].shouldShowContinuousHint(
+        completerIsVisible,
+        changed
+      );
+    }
+    return this._defaultShouldShowContinuousHint(completerIsVisible, changed);
+  }
+
+  private _defaultShouldShowContinuousHint(
+    completerIsVisible: boolean,
+    changed: IObservableString.IChangedArgs
+  ): boolean {
+    return (
+      !completerIsVisible &&
+      changed.type !== 'remove' &&
+      changed.value.replace(/\s+/g, '').length > 0
+    );
   }
 
   private _resolveFactory = (
