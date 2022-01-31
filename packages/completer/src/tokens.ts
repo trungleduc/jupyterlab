@@ -79,7 +79,7 @@ export interface ICompletionProvider<
   ): Promise<T>;
 
   /**
-   * If users enable `continuousHinting` in setting, this method is 
+   * If users enable `continuousHinting` in setting, this method is
    * called on text changed event of `CodeMirror` to check if the
    * completion items should be shown.
    *

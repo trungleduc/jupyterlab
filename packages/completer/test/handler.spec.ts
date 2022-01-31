@@ -38,7 +38,10 @@ class TestCompleterModel extends CompleterModel {
 class TestCompletionHandler extends CompletionHandler {
   methods: string[] = [];
 
-  onTextChanged(str: IObservableString, changed: IObservableString.IChangedArgs): void {
+  onTextChanged(
+    str: IObservableString,
+    changed: IObservableString.IChangedArgs
+  ): void {
     super.onTextChanged(str, changed);
     this.methods.push('onTextChanged');
   }

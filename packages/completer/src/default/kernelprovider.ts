@@ -106,15 +106,18 @@ export class KernelCompleterProvider implements ICompletionProvider {
     return item;
   }
 
-  shouldShowContinuousHint(visible: boolean, changed: IObservableString.IChangedArgs): boolean {
-    if(changed.type === 'remove'){
-      return false
+  shouldShowContinuousHint(
+    visible: boolean,
+    changed: IObservableString.IChangedArgs
+  ): boolean {
+    if (changed.type === 'remove') {
+      return false;
     }
-    if(changed.value === '.'){
-      return true
+    if (changed.value === '.') {
+      return true;
     }
-    
-    return !visible && changed.value.replace(/\s+/g, '').length > 0
+
+    return !visible && changed.value.replace(/\s+/g, '').length > 0;
   }
 
   readonly identifier = KERNEL_PROVIDER_ID;

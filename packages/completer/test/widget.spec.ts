@@ -54,7 +54,7 @@ class CustomRenderer extends Completer.Renderer {
   createDocumentationNode(
     item: CompletionHandler.ICompletionItem
   ): HTMLElement {
-    const element = super.createDocumentationNode!(item);   
+    const element = super.createDocumentationNode!(item);
     element.classList.add(TEST_DOC_CLASS);
     return element;
   }
@@ -132,7 +132,7 @@ describe('completer/widget', () => {
           { label: 'bar' }
         ]);
 
-        let widget = new Completer(options);        
+        let widget = new Completer(options);
         expect(widget).toBeInstanceOf(Completer);
         widget.showDocsPanel = true;
         MessageLoop.sendMessage(widget, Widget.Msg.UpdateRequest);
@@ -141,14 +141,55 @@ describe('completer/widget', () => {
         expect(Array.from(items[0].classList)).toEqual(
           expect.arrayContaining([TEST_ITEM_CLASS])
         );
-        // Since the document is lazy loaded, wait a tick to allow the 
+        // Since the document is lazy loaded, wait a tick to allow the
         // event loop remove the loading animation.
-        await new Promise(r => setTimeout(r, 10)); 
-        let panel = widget.node.querySelector(`.${DOC_PANEL_CLASS}`)!;        
+        await new Promise(r => setTimeout(r, 10));
+        let panel = widget.node.querySelector(`.${DOC_PANEL_CLASS}`)!;
         expect(panel.children).toHaveLength(1);
         expect(Array.from(panel.firstElementChild!.classList)).toEqual(
           expect.arrayContaining([TEST_DOC_CLASS])
         );
+      });
+      it('should hide document panel', async () => {
+        let options: Completer.IOptions = {
+          editor: null,
+          model: new CompleterModel(),
+          renderer: new CustomRenderer()
+        };
+        options.model!.setCompletionItems!([
+          { label: 'foo', documentation: 'foo does bar' }
+        ]);
+
+        let widget = new Completer(options);
+        widget.showDocsPanel = false;
+        MessageLoop.sendMessage(widget, Widget.Msg.UpdateRequest);
+        let panel = widget.node.querySelector(`.${DOC_PANEL_CLASS}`)!;
+        expect(panel).toBeNull();
+      });
+
+      it('should resolve item from creating widget.', () => {
+        const options: Completer.IOptions = {
+          editor: null,
+          model: new CompleterModel()
+        };
+        options.model!.setCompletionItems!([{ label: 'foo' }]);
+        options.model!.resolveItem = jest.fn();
+        const widget = new Completer(options);
+        MessageLoop.sendMessage(widget, Widget.Msg.UpdateRequest);
+        expect(options.model!.resolveItem).toBeCalledTimes(1);
+      });
+
+      it('should resolve item from model on switching item.', () => {
+        const options: Completer.IOptions = {
+          editor: null,
+          model: new CompleterModel()
+        };
+        options.model!.setCompletionItems!([{ label: 'foo' }]);
+        options.model!.resolveItem = jest.fn();
+        const widget = new Completer(options);
+        MessageLoop.sendMessage(widget, Widget.Msg.UpdateRequest);
+        widget['_cycle']('down');
+        expect(options.model!.resolveItem).toBeCalledTimes(2);
       });
     });
 

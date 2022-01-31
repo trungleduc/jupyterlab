@@ -19,7 +19,7 @@ import { IEditorTracker } from '@jupyterlab/fileeditor';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { IConsoleTracker } from '@jupyterlab/console';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
-// import { PartialJSONObject } from '@lumino/coreutils';
+
 /**
  * The command IDs used by the completer plugin.
  */
