@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfigbase",
+  "compilerOptions": {
+    "outDir": "lib",
+    "rootDir": "src"
+  },
+  "include": [
+    "src/*"
+  ],
+  "references": [
+    {
+      "path": "../application"
+    },
+    {
+      "path": "../settingregistry"
+    },
+    {
+      "path": "../translation"
+    }
+  ]
+}

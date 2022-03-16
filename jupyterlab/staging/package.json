@@ -232,6 +232,7 @@
       "@jupyterlab/inspector-extension": "",
       "@jupyterlab/launcher-extension": "",
       "@jupyterlab/logconsole-extension": "",
+      "@jupyterlab/lsp-extension": "",
       "@jupyterlab/mainmenu-extension": "",
       "@jupyterlab/markdownviewer-extension": "",
       "@jupyterlab/markedparser-extension": "",

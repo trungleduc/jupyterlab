@@ -4,7 +4,9 @@
     "outDir": "lib",
     "rootDir": "src"
   },
-  "include": ["src/*"],
+  "include": [
+    "src/*"
+  ],
   "references": [
     {
       "path": "../application"
@@ -146,6 +148,9 @@
     },
     {
       "path": "../logconsole-extension"
+    },
+    {
+      "path": "../lsp-extension"
     },
     {
       "path": "../mainmenu"

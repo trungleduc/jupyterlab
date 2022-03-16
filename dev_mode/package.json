@@ -360,6 +360,7 @@
       "@jupyterlab/launcher-extension": "../packages/launcher-extension",
       "@jupyterlab/logconsole": "../packages/logconsole",
       "@jupyterlab/logconsole-extension": "../packages/logconsole-extension",
+      "@jupyterlab/lsp-extension": "../packages/lsp-extension",
       "@jupyterlab/mainmenu": "../packages/mainmenu",
       "@jupyterlab/mainmenu-extension": "../packages/mainmenu-extension",
       "@jupyterlab/markdownviewer": "../packages/markdownviewer",
