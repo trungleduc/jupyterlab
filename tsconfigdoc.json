@@ -158,6 +158,9 @@
       "path": "./packages/logconsole-extension"
     },
     {
+      "path": "./packages/lsp"
+    },
+    {
       "path": "./packages/lsp-extension"
     },
     {

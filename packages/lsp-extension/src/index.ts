@@ -21,7 +21,7 @@ import { ITranslator } from '@jupyterlab/translation';
  */
 const plugin: JupyterFrontEndPlugin<void> = {
   activate,
-  id: '@jupyterlab/terminal-extension:plugin',
+  id: '@jupyterlab/lsp-extension:plugin',
   requires: [ISettingRegistry, ITranslator],
   autoStart: true
 };
@@ -34,7 +34,7 @@ function activate(
   settingRegistry: ISettingRegistry,
   translator: ITranslator
 ): void {
-  console.log('open called');
+  console.log('openc calle d');
 }
 
 /**

@@ -1,5 +1,5 @@
 {
-  "name": "@jupyterlab/lsp-extension",
+  "name": "@jupyterlab/lsp",
   "version": "4.0.0-alpha.6",
   "description": "",
   "homepage": "https://github.com/jupyterlab/jupyterlab",
@@ -17,15 +17,13 @@
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "style": "style/index.css",
   "directories": {
     "lib": "lib/"
   },
   "files": [
     "lib/**/*.{d.ts,eot,gif,html,jpg,js,js.map,json,png,svg,woff2,ttf}",
     "schema/*.json",
-    "style/**/*.{css,eot,gif,html,jpg,json,png,svg,woff2,ttf}",
-    "style/index.js"
+    "style/**/*.{css,eot,gif,html,jpg,json,png,svg,woff2,ttf}"
   ],
   "scripts": {
     "build": "tsc -b",
@@ -39,13 +37,17 @@
     "watch": "tsc -b --watch"
   },
   "dependencies": {
-    "@jupyterlab/application": "^4.0.0-alpha.6",
-    "@jupyterlab/settingregistry": "^4.0.0-alpha.6",
-    "@jupyterlab/translation": "^4.0.0-alpha.6"
+    "lodash.mergewith": "^4.6.1",
+    "lsp-ws-connection": "~0.7.0",
+    "vscode-jsonrpc": "^6.0.0",
+    "vscode-languageserver-protocol": "^3.16.0",
+    "vscode-languageserver-types": "^3.16.0",
+    "vscode-ws-jsonrpc": "0.2.0"
   },
   "devDependencies": {
     "@jupyterlab/testutils": "^4.0.0-alpha.6",
     "@types/jest": "^26.0.10",
+    "@types/lodash.mergewith": "^4.6.1",
     "jest": "^26.4.2",
     "rimraf": "~3.0.0",
     "ts-jest": "^26.3.0",
@@ -53,9 +55,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "jupyterlab": {
-    "extension": true
-  },
-  "styleModule": "style/index.js"
+  }
 }
