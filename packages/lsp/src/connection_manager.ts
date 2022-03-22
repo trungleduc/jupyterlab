@@ -1,7 +1,10 @@
 import { PageConfig, URLExt } from '@jupyterlab/coreutils';
 import { Signal } from '@lumino/signaling';
 
+import { LSPConnection } from './connection';
 import {
+  IDocumentConnectionData,
+  IDocumentConnectionManager,
   ILanguageServerManager,
   ILSPLogConsole,
   TLanguageServerConfigurations,
@@ -12,19 +15,11 @@ import { expandDottedPaths, sleep, untilReady } from './utils';
 
 import type * as protocol from 'vscode-languageserver-protocol';
 
-import type * as ConnectionModuleType from './connection';
-
 type AskServersToSendTraceNotifications = any;
 type ClientCapabilities = any;
 type VirtualDocument = any;
-type IForeignContext = any;
-export interface IDocumentConnectionData {
-  virtual_document: VirtualDocument;
-  connection: ConnectionModuleType.LSPConnection;
-}
 
 export interface ISocketConnectionOptions {
-  virtual_document: VirtualDocument;
   /**
    * The language identifier, corresponding to the API endpoint on the LSP proxy server.
    */
@@ -32,11 +27,13 @@ export interface ISocketConnectionOptions {
   /**
    * Path to the document in the JupyterLab space
    */
-  document_path: string;
+  documentPath: string;
   /**
    * LSP capabilities describing currently supported features
    */
   capabilities: ClientCapabilities;
+
+  hasLspSupportedFile: boolean;
 }
 
 /**
@@ -44,8 +41,8 @@ export interface ISocketConnectionOptions {
  * (see JupyterLabWidgetAdapter). Using id_path instead of uri led to documents being overwritten
  * as two identical id_paths could be created for two different notebooks.
  */
-export class DocumentConnectionManager {
-  connections: Map<string, ConnectionModuleType.LSPConnection>;
+export class DocumentConnectionManager implements IDocumentConnectionManager {
+  connections: Map<string, LSPConnection>;
   documents: Map<string, VirtualDocument>;
   initialized: Signal<DocumentConnectionManager, IDocumentConnectionData>;
   connected: Signal<DocumentConnectionManager, IDocumentConnectionData>;
@@ -60,98 +57,62 @@ export class DocumentConnectionManager {
    *  - re-connection attempts exceeded,
    */
   closed: Signal<DocumentConnectionManager, IDocumentConnectionData>;
-  documents_changed: Signal<
+  documentsChanged: Signal<
     DocumentConnectionManager,
     Map<string, VirtualDocument>
   >;
-  language_server_manager: ILanguageServerManager;
-  initial_configurations: TLanguageServerConfigurations;
-  private ignored_languages: Set<string>;
+  languageServerManager: ILanguageServerManager;
+  initialConfigurations: TLanguageServerConfigurations;
+  private ignoredLanguages: Set<string>;
   private readonly console: ILSPLogConsole;
 
   constructor(options: DocumentConnectionManager.IOptions) {
     this.connections = new Map();
     this.documents = new Map();
-    this.ignored_languages = new Set();
+    this.ignoredLanguages = new Set();
     this.connected = new Signal(this);
     this.initialized = new Signal(this);
     this.disconnected = new Signal(this);
     this.closed = new Signal(this);
-    this.documents_changed = new Signal(this);
-    this.language_server_manager = options.language_server_manager;
+    this.documentsChanged = new Signal(this);
+    this.languageServerManager = options.languageServerManager;
     this.console = options.console;
-    Private.setLanguageServerManager(options.language_server_manager);
+    Private.setLanguageServerManager(options.languageServerManager);
   }
 
-  connect_document_signals(virtual_document: VirtualDocument) {
-    virtual_document.foreign_document_opened.connect(
-      this.on_foreign_document_opened,
-      this
-    );
-
-    virtual_document.foreign_document_closed.connect(
-      this.on_foreign_document_closed,
-      this
-    );
-
-    this.documents.set(virtual_document.uri, virtual_document);
-    this.documents_changed.emit(this.documents);
+  connectDocumentSignals(documentPath: string): void {
+    // this.documents.set(documentPath, virtual_document);
+    // this.documents_changed.emit(this.documents);
   }
 
-  disconnect_document_signals(virtual_document: VirtualDocument, emit = true) {
-    virtual_document.foreign_document_opened.disconnect(
-      this.on_foreign_document_opened,
-      this
-    );
-
-    virtual_document.foreign_document_closed.disconnect(
-      this.on_foreign_document_closed,
-      this
-    );
-
-    this.documents.delete(virtual_document.uri);
-    for (const foreign of virtual_document.foreign_documents.values()) {
-      this.disconnect_document_signals(foreign, false);
-    }
-
+  disconnectDocumentSignals(documentPath: string, emit = true): void {
+    this.documents.delete(documentPath);
     if (emit) {
-      this.documents_changed.emit(this.documents);
+      this.documentsChanged.emit(this.documents);
     }
   }
 
-  on_foreign_document_opened(_host: VirtualDocument, context: IForeignContext) {
-    this.console.log(
-      'ConnectionManager received foreign document: ',
-      context.foreign_document.uri
-    );
-  }
-
-  on_foreign_document_closed(_host: VirtualDocument, context: IForeignContext) {
-    const { foreign_document } = context;
-    this.disconnect_document_signals(foreign_document);
-  }
-
-  private async connect_socket(
+  private async connectSocket(
     options: ISocketConnectionOptions
-  ): Promise<ConnectionModuleType.LSPConnection> {
+  ): Promise<LSPConnection> {
     this.console.log('Connection Socket', options);
-    let { virtual_document, language, capabilities } = options;
+    let { language, capabilities, documentPath, hasLspSupportedFile } = options;
 
-    this.connect_document_signals(virtual_document);
+    this.connectDocumentSignals(documentPath);
 
-    const uris = DocumentConnectionManager.solve_uris(
-      virtual_document.uri,
-      virtual_document.has_lsp_supported_file,
+    const uris = DocumentConnectionManager.solveUris(
+      documentPath,
+      hasLspSupportedFile,
       language
     );
 
-    const matchingServers = this.language_server_manager.getMatchingServers({
+    const matchingServers = this.languageServerManager.getMatchingServers({
       language
     });
-    this.console.debug('Matching servers: ', matchingServers);
+    console.debug('Matching servers: ', matchingServers);
 
     // for now use only the server with the highest priority.
-    const language_server_id =
+    const languageServerId =
       matchingServers.length === 0 ? null : matchingServers[0];
 
     // lazily load 1) the underlying library (1.5mb) and/or 2) a live WebSocket-
@@ -159,16 +120,16 @@ export class DocumentConnectionManager {
     // of connecting.
     const connection = await Private.connection(
       language,
-      language_server_id!,
+      languageServerId!,
       uris,
-      this.on_new_connection,
+      this.onNewConnection,
       this.console,
       capabilities
     );
 
     // if connecting for the first time, all documents subsequent documents will
     // be re-opened and synced
-    this.connections.set(virtual_document.uri, connection);
+    this.connections.set(documentPath, connection);
 
     return connection;
   }
@@ -180,8 +141,10 @@ export class DocumentConnectionManager {
    *
    * This function should be called **before** initialization of servers.
    */
-  public updateConfiguration(allServerSettings: TLanguageServerConfigurations) {
-    this.language_server_manager.setConfiguration(allServerSettings);
+  public updateConfiguration(
+    allServerSettings: TLanguageServerConfigurations
+  ): void {
+    this.languageServerManager.setConfiguration(allServerSettings);
   }
 
   /**
@@ -194,14 +157,14 @@ export class DocumentConnectionManager {
    */
   public updateServerConfigurations(
     allServerSettings: TLanguageServerConfigurations
-  ) {
-    let language_server_id: TServerKeys;
+  ): void {
+    let languageServerId: TServerKeys;
 
-    for (language_server_id in allServerSettings) {
-      if (!allServerSettings.hasOwnProperty(language_server_id)) {
+    for (languageServerId in allServerSettings) {
+      if (!allServerSettings.hasOwnProperty(languageServerId)) {
         continue;
       }
-      const rawSettings = allServerSettings[language_server_id]!;
+      const rawSettings = allServerSettings[languageServerId]!;
 
       const parsedSettings = expandDottedPaths(
         rawSettings.serverSettings || {}
@@ -211,9 +174,9 @@ export class DocumentConnectionManager {
         settings: parsedSettings
       };
 
-      this.console.log('Server Update: ', language_server_id);
+      this.console.log('Server Update: ', languageServerId);
       this.console.log('Sending settings: ', serverSettings);
-      Private.updateServerConfiguration(language_server_id, serverSettings);
+      Private.updateServerConfiguration(languageServerId, serverSettings);
     }
   }
 
@@ -222,7 +185,9 @@ export class DocumentConnectionManager {
    * invocation of `.on` (once remaining LSPFeature.connection_handlers are made
    * singletons).
    */
-  on_new_connection = (connection: ConnectionModuleType.LSPConnection) => {
+  onNewConnection = (connection: LSPConnection): void => {
+    console.log('onNewConnection', connection);
+    
     connection.on('error', e => {
       this.console.warn(e);
       // TODO invalid now
@@ -230,15 +195,6 @@ export class DocumentConnectionManager {
       // TODO: those codes may be specific to my proxy client, need to investigate
       if (error.message.indexOf('code = 1005') !== -1) {
         this.console.warn(`Connection failed for ${connection}`);
-        this.forEachDocumentOfConnection(connection, virtual_document => {
-          this.console.warn('disconnecting ' + virtual_document.uri);
-          this.closed.emit({ connection, virtual_document });
-          this.ignored_languages.add(virtual_document.language);
-
-          this.console.warn(
-            `Cancelling further attempts to connect ${virtual_document.uri} and other documents for this language (no support from the server)`
-          );
-        });
       } else if (error.message.indexOf('code = 1006') !== -1) {
         this.console.warn('Connection closed by the server');
       } else {
@@ -247,61 +203,41 @@ export class DocumentConnectionManager {
     });
 
     connection.on('serverInitialized', capabilities => {
-      this.forEachDocumentOfConnection(connection, virtual_document => {
-        // TODO: is this still necessary, e.g. for status bar to update responsively?
-        this.initialized.emit({ connection, virtual_document });
-      });
-
       // Initialize using settings stored in the SettingRegistry
-      this.updateServerConfigurations(this.initial_configurations);
+      console.log('serverInitialized', capabilities);
+      
+      this.updateServerConfigurations(this.initialConfigurations);
+      this.initialized.emit({ connection, documentPath: '' });
     });
 
-    connection.on('close', closed_manually => {
-      if (!closed_manually) {
+    connection.on('close', closedManually => {
+      if (!closedManually) {
         this.console.warn('Connection unexpectedly disconnected');
       } else {
         this.console.warn('Connection closed');
-        this.forEachDocumentOfConnection(connection, virtual_document => {
-          this.closed.emit({ connection, virtual_document });
-        });
       }
     });
   };
-
-  private forEachDocumentOfConnection(
-    connection: ConnectionModuleType.LSPConnection,
-    callback: (virtual_document: VirtualDocument) => void
-  ) {
-    for (const [
-      virtual_document_uri,
-      a_connection
-    ] of this.connections.entries()) {
-      if (connection !== a_connection) {
-        continue;
-      }
-      callback(this.documents.get(virtual_document_uri)!);
-    }
-  }
 
   /**
    * TODO: presently no longer referenced. A failing connection would close
    * the socket, triggering the language server on the other end to exit
    */
-  public async retry_to_connect(
+  public async retryToConnect(
     options: ISocketConnectionOptions,
-    reconnect_delay: number,
-    retrials_left = -1
-  ) {
-    let { virtual_document } = options;
+    reconnectDelay: number,
+    retrialsLeft = -1
+  ): Promise<void> {
+    let { language } = options;
 
-    if (this.ignored_languages.has(virtual_document.language)) {
+    if (this.ignoredLanguages.has(language)) {
       return;
     }
 
-    let interval = reconnect_delay * 1000;
+    let interval = reconnectDelay * 1000;
     let success = false;
 
-    while (retrials_left !== 0 && !success) {
+    while (retrialsLeft !== 0 && !success) {
       await this.connect(options)
         .then(() => {
           success = true;
@@ -324,11 +260,11 @@ export class DocumentConnectionManager {
     options: ISocketConnectionOptions,
     firstTimeoutSeconds = 30,
     secondTimeoutMinutes = 5
-  ): Promise<ConnectionModuleType.LSPConnection | undefined> {
+  ): Promise<LSPConnection | undefined> {
     this.console.log('connection requested', options);
-    let connection = await this.connect_socket(options);
+    let connection = await this.connectSocket(options);
 
-    let { virtual_document, document_path } = options;
+    let { documentPath } = options;
 
     if (!connection.isReady) {
       try {
@@ -343,7 +279,7 @@ export class DocumentConnectionManager {
         );
       } catch {
         this.console.warn(
-          `Connection to ${virtual_document.uri} timed out after ${firstTimeoutSeconds} seconds, will continue retrying for another ${secondTimeoutMinutes} minutes`
+          `Connection to ${documentPath} timed out after ${firstTimeoutSeconds} seconds, will continue retrying for another ${secondTimeoutMinutes} minutes`
         );
         try {
           await untilReady(
@@ -353,29 +289,29 @@ export class DocumentConnectionManager {
           );
         } catch {
           this.console.warn(
-            `Connection to ${virtual_document.uri} timed out again after ${secondTimeoutMinutes} minutes, giving up`
+            `Connection to ${documentPath} timed out again after ${secondTimeoutMinutes} minutes, giving up`
           );
           return;
         }
       }
     }
 
-    this.console.log(document_path, virtual_document.uri, 'connected.');
+    this.console.log(documentPath, 'connected.');
 
-    this.connected.emit({ connection, virtual_document });
+    this.connected.emit({ connection, documentPath });
 
     return connection;
   }
 
-  public unregister_document(virtual_document: VirtualDocument) {
-    this.connections.delete(virtual_document.uri);
-    this.documents_changed.emit(this.documents);
+  public unregisterDocument(documentPath: string): void {
+    this.connections.delete(documentPath);
+    this.documentsChanged.emit(this.documents);
   }
 
   updateLogging(
     logAllCommunication: boolean,
     setTrace: AskServersToSendTraceNotifications
-  ) {
+  ): void {
     for (const connection of this.connections.values()) {
       connection.logAllCommunication = logAllCommunication;
       if (setTrace !== null) {
@@ -387,11 +323,11 @@ export class DocumentConnectionManager {
 
 export namespace DocumentConnectionManager {
   export interface IOptions {
-    language_server_manager: ILanguageServerManager;
+    languageServerManager: ILanguageServerManager;
     console: ILSPLogConsole;
   }
 
-  export function solve_uris(
+  export function solveUris(
     documentPath: string,
     hasLspSupportedFile: boolean,
     language: string
@@ -400,9 +336,7 @@ export namespace DocumentConnectionManager {
     const rootUri = PageConfig.getOption('rootUri');
     const virtualDocumentsUri = PageConfig.getOption('virtualDocumentsUri');
 
-    const baseUri = hasLspSupportedFile
-      ? rootUri
-      : virtualDocumentsUri;
+    const baseUri = hasLspSupportedFile ? rootUri : virtualDocumentsUri;
 
     // for now take the best match only
     const matchingServers = Private.getLanguageServerManager().getMatchingServers(
@@ -449,23 +383,19 @@ export namespace DocumentConnectionManager {
 }
 
 /**
- * Namespace primarily for language-keyed cache of ConnectionModuleType.LSPConnections
+ * Namespace primarily for language-keyed cache of LSPConnections
  */
 namespace Private {
-  const _connections: Map<
-    TLanguageServerId,
-    ConnectionModuleType.LSPConnection
-  > = new Map();
-  let _promise: Promise<typeof ConnectionModuleType>;
-  let _language_server_manager: ILanguageServerManager;
+  const _connections: Map<TLanguageServerId, LSPConnection> = new Map();
+  let _languageServerManager: ILanguageServerManager;
 
-  export function getLanguageServerManager() {
-    return _language_server_manager;
+  export function getLanguageServerManager(): ILanguageServerManager {
+    return _languageServerManager;
   }
   export function setLanguageServerManager(
-    language_server_manager: ILanguageServerManager
-  ) {
-    _language_server_manager = language_server_manager;
+    languageServerManager: ILanguageServerManager
+  ): void {
+    _languageServerManager = languageServerManager;
   }
 
   /**
@@ -473,22 +403,13 @@ namespace Private {
    */
   export async function connection(
     language: string,
-    language_server_id: TLanguageServerId,
+    languageServerId: TLanguageServerId,
     uris: DocumentConnectionManager.IURIs,
-    onCreate: (connection: ConnectionModuleType.LSPConnection) => void,
+    onCreate: (connection: LSPConnection) => void,
     console: ILSPLogConsole,
     capabilities: ClientCapabilities
-  ): Promise<ConnectionModuleType.LSPConnection> {
-    if (_promise == null) {
-      // TODO: consider lazy-loading _only_ the modules that _must_ be webpacked
-      // with custom shims, e.g. `fs`
-      _promise = import(
-        /* webpackChunkName: "jupyter-lsp-connection" */ './connection'
-      );
-    }
-
-    const { LSPConnection } = await _promise;
-    let connection = _connections.get(language_server_id);
+  ): Promise<LSPConnection> {
+    let connection = _connections.get(languageServerId);
 
     if (connection == null) {
       const socket = new WebSocket(uris.socket);
@@ -496,27 +417,27 @@ namespace Private {
         languageId: language,
         serverUri: uris.server,
         rootUri: uris.base,
-        serverIdentifier: language_server_id,
+        serverIdentifier: languageServerId,
         console: console,
         capabilities: capabilities
       });
       // TODO: remove remaining unbounded users of connection.on
       connection.setMaxListeners(999);
-      _connections.set(language_server_id, connection);
+      _connections.set(languageServerId, connection);
       connection.connect(socket);
       onCreate(connection);
     }
 
-    connection = _connections.get(language_server_id)!;
+    connection = _connections.get(languageServerId)!;
 
     return connection;
   }
 
   export function updateServerConfiguration(
-    language_server_id: TLanguageServerId,
+    languageServerId: TLanguageServerId,
     settings: protocol.DidChangeConfigurationParams
   ): void {
-    const connection = _connections.get(language_server_id);
+    const connection = _connections.get(languageServerId);
     if (connection) {
       connection.sendConfigurationChange(settings);
     }

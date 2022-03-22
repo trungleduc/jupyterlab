@@ -384,7 +384,7 @@ export class LSPConnection extends LspWsConnection {
     this._options = options;
     this.logAllCommunication = false;
     this.serverIdentifier = options.serverIdentifier;
-    this.console = options.console.scope(this.serverIdentifier + ' connection');
+    this.console = options.console;
     this.documentsToOpen = [];
     this.clientNotifications = this.constructNotificationHandlers<
       ClientNotifications

@@ -6,3 +6,6 @@
  * @packageDocumentation
  * @module lsp
  */
+
+ export * from './connection_manager';
+ export * from './manager';
