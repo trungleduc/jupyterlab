@@ -18,6 +18,7 @@ import {
 import type * as rpc from 'vscode-jsonrpc';
 import type * as lsp from 'vscode-languageserver-protocol';
 import type { MessageConnection } from 'vscode-ws-jsonrpc';
+import { ILSPConnection } from './tokens';
 
 // import { ClientCapabilities } from './lsp';
 // import { ILSPLogConsole } from './tokens';
@@ -328,7 +329,7 @@ interface IMessageLog<T extends AnyMethod = AnyMethod> {
   message: any;
 }
 
-export class LSPConnection extends LspWsConnection {
+export class LSPConnection extends LspWsConnection implements ILSPConnection {
   protected documentsToOpen: IDocumentInfo[];
   public serverIdentifier?: string;
 

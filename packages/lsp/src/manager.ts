@@ -36,7 +36,7 @@ export class LanguageServerManager implements ILanguageServerManager {
     this._statusCode = -1;
     this._configuration = {};
     this.console = options.console;
-    this.fetchSessions().catch(console.warn);
+    this.fetchSessions().catch(e => console.error(e));
   }
 
   get specs() {
@@ -93,14 +93,17 @@ export class LanguageServerManager implements ILanguageServerManager {
     );
   }
 
-  getMatchingServers(options: ILanguageServerManager.IGetServerIdOptions): TLanguageServerId[] {
+  getMatchingServers(
+    options: ILanguageServerManager.IGetServerIdOptions
+  ): TLanguageServerId[] {
     if (!options.language) {
       this.console.error(
         'Cannot match server by language: language not available; ensure that kernel and specs provide language and MIME type'
       );
       return [];
     }
-
+    console.log('getMatchingServers',this._sessions );
+    
     const matchingSessionsKeys: TLanguageServerId[] = [];
 
     for (const [key, session] of this._sessions.entries()) {
@@ -112,7 +115,9 @@ export class LanguageServerManager implements ILanguageServerManager {
     return matchingSessionsKeys.sort(this._comparePriorities.bind(this));
   }
 
-  getMatchingSpecs(options: ILanguageServerManager.IGetServerIdOptions): Map<any, any> {
+  getMatchingSpecs(
+    options: ILanguageServerManager.IGetServerIdOptions
+  ): Map<any, any> {
     const result: TSpecsMap = new Map();
 
     for (const [key, specification] of this._specs.entries()) {

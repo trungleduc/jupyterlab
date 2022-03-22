@@ -3,10 +3,13 @@ import { Signal } from '@lumino/signaling';
 
 import { LSPConnection } from './connection';
 import {
+  ClientCapabilities,
   IDocumentConnectionData,
   IDocumentConnectionManager,
   ILanguageServerManager,
+  ILSPConnection,
   ILSPLogConsole,
+  ISocketConnectionOptions,
   TLanguageServerConfigurations,
   TLanguageServerId,
   TServerKeys
@@ -16,25 +19,8 @@ import { expandDottedPaths, sleep, untilReady } from './utils';
 import type * as protocol from 'vscode-languageserver-protocol';
 
 type AskServersToSendTraceNotifications = any;
-type ClientCapabilities = any;
+
 type VirtualDocument = any;
-
-export interface ISocketConnectionOptions {
-  /**
-   * The language identifier, corresponding to the API endpoint on the LSP proxy server.
-   */
-  language: string;
-  /**
-   * Path to the document in the JupyterLab space
-   */
-  documentPath: string;
-  /**
-   * LSP capabilities describing currently supported features
-   */
-  capabilities: ClientCapabilities;
-
-  hasLspSupportedFile: boolean;
-}
 
 /**
  * Each Widget with a document (whether file or a notebook) has the same DocumentConnectionManager
@@ -43,22 +29,21 @@ export interface ISocketConnectionOptions {
  */
 export class DocumentConnectionManager implements IDocumentConnectionManager {
   connections: Map<string, LSPConnection>;
-  documents: Map<string, VirtualDocument>;
-  initialized: Signal<DocumentConnectionManager, IDocumentConnectionData>;
-  connected: Signal<DocumentConnectionManager, IDocumentConnectionData>;
+  initialized: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
+  connected: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
   /**
    * Connection temporarily lost or could not be fully established; a re-connection will be attempted;
    */
-  disconnected: Signal<DocumentConnectionManager, IDocumentConnectionData>;
+  disconnected: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
   /**
    * Connection was closed permanently and no-reconnection will be attempted, e.g.:
    *  - there was a serious server error
    *  - user closed the connection,
    *  - re-connection attempts exceeded,
    */
-  closed: Signal<DocumentConnectionManager, IDocumentConnectionData>;
+  closed: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
   documentsChanged: Signal<
-    DocumentConnectionManager,
+    IDocumentConnectionManager,
     Map<string, VirtualDocument>
   >;
   languageServerManager: ILanguageServerManager;
@@ -68,7 +53,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
 
   constructor(options: DocumentConnectionManager.IOptions) {
     this.connections = new Map();
-    this.documents = new Map();
     this.ignoredLanguages = new Set();
     this.connected = new Signal(this);
     this.initialized = new Signal(this);
@@ -80,25 +64,11 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     Private.setLanguageServerManager(options.languageServerManager);
   }
 
-  connectDocumentSignals(documentPath: string): void {
-    // this.documents.set(documentPath, virtual_document);
-    // this.documents_changed.emit(this.documents);
-  }
-
-  disconnectDocumentSignals(documentPath: string, emit = true): void {
-    this.documents.delete(documentPath);
-    if (emit) {
-      this.documentsChanged.emit(this.documents);
-    }
-  }
-
   private async connectSocket(
     options: ISocketConnectionOptions
   ): Promise<LSPConnection> {
     this.console.log('Connection Socket', options);
     let { language, capabilities, documentPath, hasLspSupportedFile } = options;
-
-    this.connectDocumentSignals(documentPath);
 
     const uris = DocumentConnectionManager.solveUris(
       documentPath,
@@ -187,7 +157,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
    */
   onNewConnection = (connection: LSPConnection): void => {
     console.log('onNewConnection', connection);
-    
+
     connection.on('error', e => {
       this.console.warn(e);
       // TODO invalid now
@@ -205,7 +175,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     connection.on('serverInitialized', capabilities => {
       // Initialize using settings stored in the SettingRegistry
       console.log('serverInitialized', capabilities);
-      
+
       this.updateServerConfigurations(this.initialConfigurations);
       this.initialized.emit({ connection, documentPath: '' });
     });
@@ -260,9 +230,10 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     options: ISocketConnectionOptions,
     firstTimeoutSeconds = 30,
     secondTimeoutMinutes = 5
-  ): Promise<LSPConnection | undefined> {
+  ): Promise<ILSPConnection | undefined> {
     this.console.log('connection requested', options);
     let connection = await this.connectSocket(options);
+    console.log('connection', connection);
 
     let { documentPath } = options;
 
@@ -305,7 +276,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
 
   public unregisterDocument(documentPath: string): void {
     this.connections.delete(documentPath);
-    this.documentsChanged.emit(this.documents);
   }
 
   updateLogging(

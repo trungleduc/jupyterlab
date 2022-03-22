@@ -1,13 +1,14 @@
 import { ISignal } from '@lumino/signaling';
 import { ServerConnection } from '@jupyterlab/services';
 import { ILspConnection } from 'lsp-ws-connection';
-
+import { Token } from '@lumino/coreutils';
 export type ILSPLogConsole = any;
 export type TLanguageServerConfigurations = any;
 export type TServerKeys = any;
 export type TSessionMap = any;
 export type TSpecsMap = any;
 export type TLanguageId = string;
+export type ClientCapabilities = any;
 
 export type TLanguageServerId =
   | 'pylsp'
@@ -65,12 +66,54 @@ export namespace ILanguageServerManager {
   }
 }
 
+export interface ISocketConnectionOptions {
+  /**
+   * The language identifier, corresponding to the API endpoint on the LSP proxy server.
+   */
+  language: string;
+  /**
+   * Path to the document in the JupyterLab space
+   */
+  documentPath: string;
+  /**
+   * LSP capabilities describing currently supported features
+   */
+  capabilities: ClientCapabilities;
+
+  hasLspSupportedFile: boolean;
+}
 
 export interface IDocumentConnectionData {
-    documentPath: string;
-    connection: ILspConnection;
-  }
-
-export interface IDocumentConnectionManager{
-    connected : ISignal<IDocumentConnectionManager, IDocumentConnectionData>
+  documentPath: string;
+  connection: ILspConnection;
 }
+
+export interface ILSPConnection extends ILspConnection {
+
+}
+export interface IDocumentConnectionManager {
+  connected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
+  initialized: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
+  disconnected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
+  closed: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
+  languageServerManager: ILanguageServerManager;
+  updateConfiguration(allServerSettings: TLanguageServerConfigurations): void;
+  updateServerConfigurations(
+    allServerSettings: TLanguageServerConfigurations
+  ): void;
+  retryToConnect(
+    options: ISocketConnectionOptions,
+    reconnectDelay: number,
+    retrialsLeft: number
+  ): Promise<void>;
+  connect(
+    options: ISocketConnectionOptions,
+    firstTimeoutSeconds: number,
+    secondTimeoutMinute: number
+  ): Promise<ILSPConnection | undefined>
+  unregisterDocument(documentPath: string): void
+}
+
+export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
+  '@jupyterlab/lsp:IDocumentConnectionManager'
+)
