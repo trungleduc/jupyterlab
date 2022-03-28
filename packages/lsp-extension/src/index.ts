@@ -11,7 +11,7 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-
+import { IRunningSessionManagers, IRunningSessions } from '@jupyterlab/running';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 
 import { ITranslator } from '@jupyterlab/translation';
@@ -19,8 +19,10 @@ import { ITranslator } from '@jupyterlab/translation';
 import {
   DocumentConnectionManager,
   IDocumentConnectionManager,
-  LanguageServerManager,
+  ILSPConnection,
+  LanguageServerManager
 } from '@jupyterlab/lsp';
+import { LabIcon, pythonIcon } from '@jupyterlab/ui-components';
 /**
  * The default terminal extension.
  */
@@ -28,6 +30,7 @@ const plugin: JupyterFrontEndPlugin<IDocumentConnectionManager> = {
   activate,
   id: '@jupyterlab/lsp-extension:plugin',
   requires: [ISettingRegistry, ITranslator],
+  optional: [IRunningSessionManagers],
   provides: IDocumentConnectionManager,
   autoStart: true
 };
@@ -38,9 +41,9 @@ const plugin: JupyterFrontEndPlugin<IDocumentConnectionManager> = {
 async function activate(
   app: JupyterFrontEnd,
   settingRegistry: ISettingRegistry,
-  translator: ITranslator
+  translator: ITranslator,
+  runningSessionManagers: IRunningSessionManagers | null
 ): Promise<IDocumentConnectionManager> {
-
   const languageServerManager = new LanguageServerManager({
     console: {
       ...console,
@@ -58,35 +61,62 @@ async function activate(
   // update the server-independent part of configuration immediately
   connectionManager.updateConfiguration({});
   connectionManager.updateLogging(false, 'off');
-  // const capabilities = {
-  //   textDocument: {
-  //     synchronization: {
-  //       dynamicRegistration: true,
-  //       willSave: false,
-  //       didSave: true,
-  //       willSaveWaitUntil: false
-  //     }
-  //   },
-  //   workspace: {
-  //     didChangeConfiguration: {
-  //       dynamicRegistration: true
-  //     }
-  //   }
-  // };
-  // languageServerManager.sessionsChanged.connect(() => {
-  //   connectionManager.connect({
-  //     language: 'python',
-  //     documentPath: 'voila.ipynb',
-  //     capabilities,
-  //     hasLspSupportedFile: false
-  //   });
-  // });
 
   console.log('connectionManager', connectionManager);
+  // Add a sessions manager if the running extension is available
+  if (runningSessionManagers) {
+    addRunningSessionManager(runningSessionManagers, connectionManager, translator);
+  }
 
-  return connectionManager
+  return connectionManager;
 }
 
+export class RunningLanguageServers implements IRunningSessions.IRunningItem {
+  constructor(connection: ILSPConnection) {
+    this._connection = connection    
+  }
+  open(): void {
+    /** */
+  }
+  icon(): LabIcon {
+    return pythonIcon;
+  }
+  label(): string {
+    return `${this._connection.serverIdentifier ?? ''} (${this._connection.serverLanguage ?? ''})` ;
+  }
+  shutdown(): void {
+    this._connection.close()
+  }
+  private _connection : ILSPConnection
+}
+
+/**
+ * Add the running terminal manager to the running panel.
+ */
+function addRunningSessionManager(
+  managers: IRunningSessionManagers,
+  lsManager: IDocumentConnectionManager,
+  translator: ITranslator
+) {
+  const trans = translator.load('jupyterlab');
+
+  managers.add({
+    name: trans.__('Language servers'),
+    running: () => {
+      const connections = new Set([...lsManager.connections.values()] ) 
+      
+      return [...connections].map(conn => new RunningLanguageServers(conn))  
+    },
+    shutdownAll: () => {/** */},
+    refreshRunning: () => {/** */},
+    runningChanged: lsManager.connected,
+    shutdownLabel: trans.__('Shut Down'),
+    shutdownAllLabel: trans.__('Shut Down All'),
+    shutdownAllConfirmationText: trans.__(
+      'Are you sure you want to permanently shut down all running language servers?'
+    )
+  });
+}
 /**
  * Export the plugin as default.
  */

@@ -39,6 +39,7 @@ import { ToolbarItems as DocToolbarItems } from '@jupyterlab/docmanager-extensio
 import { DocumentRegistry } from '@jupyterlab/docregistry';
 import { IFileBrowserFactory } from '@jupyterlab/filebrowser';
 import { ILauncher } from '@jupyterlab/launcher';
+import { IDocumentConnectionManager } from '@jupyterlab/lsp';
 import { IMainMenu } from '@jupyterlab/mainmenu';
 import * as nbformat from '@jupyterlab/nbformat';
 import {
@@ -762,6 +763,14 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
   activate: activateNotebookCompleterService,
   autoStart: true
 };
+
+const languageServerPlugin: JupyterFrontEndPlugin<void> = {
+  id: '@jupyterlab/notebook-extension:language-server',
+  requires: [INotebookTracker],
+  optional: [IDocumentConnectionManager],
+  activate: activateNotebookLanguageServer,
+  autoStart: true
+};
 /**
  * Export the plugins as default.
  */
@@ -780,7 +789,8 @@ const plugins: JupyterFrontEndPlugin<any>[] = [
   copyOutputPlugin,
   kernelStatus,
   lineColStatus,
-  completerPlugin
+  completerPlugin,
+  languageServerPlugin
 ];
 export default plugins;
 
@@ -1662,6 +1672,42 @@ function activateNotebookCompleterService(
   manager.activeProvidersChanged.connect(() => {
     notebooks.forEach(panel => {
       updateCompleter(undefined, panel).catch(e => console.error(e));
+    });
+  });
+}
+/**
+ * Activate the language server for notebook.
+ */
+function activateNotebookLanguageServer(
+  app: JupyterFrontEnd,
+  notebooks: INotebookTracker,
+  manager?: IDocumentConnectionManager
+): void {
+  if (!manager) {
+    return;
+  }
+
+  notebooks.widgetAdded.connect(async (_, notebook) => {
+    const capabilities = {
+      textDocument: {
+        synchronization: {
+          dynamicRegistration: true,
+          willSave: false,
+          didSave: true,
+          willSaveWaitUntil: false
+        }
+      },
+      workspace: {
+        didChangeConfiguration: {
+          dynamicRegistration: true
+        }
+      }
+    };
+    manager.connect({
+      language: 'python',
+      documentPath: notebook.context.path,
+      capabilities,
+      hasLspSupportedFile: false
     });
   });
 }

@@ -66,3 +66,26 @@ export const expandPath = (
 
   return obj;
 };
+
+export class DefaultMap<K, V> extends Map<K, V> {
+  constructor(
+    private defaultFactory: (...args: any[]) => V,
+    entries?: ReadonlyArray<readonly [K, V]> | null
+  ) {
+    super(entries);
+  }
+
+  get(k: K): V {
+    return this.get_or_create(k);
+  }
+
+  get_or_create(k: K, ...args: any[]): V {
+    if (this.has(k)) {
+      return super.get(k)!;
+    } else {
+      let v = this.defaultFactory(k, ...args);
+      this.set(k, v);
+      return v;
+    }
+  }
+}

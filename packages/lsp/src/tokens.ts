@@ -89,9 +89,11 @@ export interface IDocumentConnectionData {
 }
 
 export interface ILSPConnection extends ILspConnection {
-
+   serverIdentifier?: string;
+   serverLanguage?: string
 }
 export interface IDocumentConnectionManager {
+  connections: Map<string, ILSPConnection>;
   connected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   initialized: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   disconnected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
@@ -108,8 +110,8 @@ export interface IDocumentConnectionManager {
   ): Promise<void>;
   connect(
     options: ISocketConnectionOptions,
-    firstTimeoutSeconds: number,
-    secondTimeoutMinute: number
+    firstTimeoutSeconds?: number,
+    secondTimeoutMinute?: number
   ): Promise<ILSPConnection | undefined>
   unregisterDocument(documentPath: string): void
 }

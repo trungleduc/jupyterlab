@@ -332,6 +332,7 @@ interface IMessageLog<T extends AnyMethod = AnyMethod> {
 export class LSPConnection extends LspWsConnection implements ILSPConnection {
   protected documentsToOpen: IDocumentInfo[];
   public serverIdentifier?: string;
+  public serverLanguage?: string;
 
   public clientNotifications: ClientNotifications;
   public serverNotifications: ServerNotifications;
@@ -385,6 +386,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     this._options = options;
     this.logAllCommunication = false;
     this.serverIdentifier = options.serverIdentifier;
+    this.serverLanguage = options.languageId;
     this.console = options.console;
     this.documentsToOpen = [];
     this.clientNotifications = this.constructNotificationHandlers<
