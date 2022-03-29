@@ -102,7 +102,6 @@ export class LanguageServerManager implements ILanguageServerManager {
       );
       return [];
     }
-    console.log('getMatchingServers',this._sessions );
     
     const matchingSessionsKeys: TLanguageServerId[] = [];
 

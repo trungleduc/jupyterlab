@@ -2,17 +2,17 @@ import { CodeEditor } from '@jupyterlab/codeeditor';
 import { Signal } from '@lumino/signaling';
 import { IDocumentInfo } from 'lsp-ws-connection';
 
-import { DocumentConnectionManager } from './connection_manager';
+import { DocumentConnectionManager } from '../connection_manager';
 
-import { LanguageIdentifier } from './lsp';
+import { LanguageIdentifier } from '../lsp';
 import {
   IEditorPosition,
   ISourcePosition,
   IVirtualPosition,
   PositionError
-} from './positioning';
+} from '../positioning';
 
-import { DefaultMap, untilReady } from './utils';
+import { DefaultMap, untilReady } from '../utils';
 
 import IRange = CodeEditor.IRange;
 
@@ -109,8 +109,7 @@ export class VirtualDocumentInfo implements IDocumentInfo {
 
   get uri(): string {
     const uris = DocumentConnectionManager.solveUris(
-      this._document.path,
-      this._document.has_lsp_supported_file,
+      this._document,
       this.languageId
     );
     return uris.document;
@@ -193,7 +192,6 @@ export class VirtualDocument {
 
   private _remaining_lifetime: number;
   private static instances_count = 0;
-  public foreign_documents: Map<VirtualDocument.virtual_id, VirtualDocument>;
 
   // TODO: make this configurable, depending on the language used
   blank_lines_between_cells: number = 2;
@@ -242,14 +240,10 @@ export class VirtualDocument {
 
     this.parent = null;
 
-    for (const doc of this.foreign_documents.values()) {
-      doc.dispose();
-    }
-
     this.update_manager.dispose();
 
     // clear all the maps
-    this.foreign_documents.clear();
+
     this.source_lines.clear();
     this.unused_documents.clear();
     this.unused_standalone_documents.clear();
@@ -286,17 +280,7 @@ export class VirtualDocument {
     // TODO - deep clear (assure that there is no memory leak)
     this.unused_standalone_documents.clear();
 
-    for (let document of this.foreign_documents.values()) {
-      document.clear();
-      if (document.standalone) {
-        // once the standalone document was cleared, we may want to remove it and close connection;
-        // but wait, this is a waste of resources (opening a connection takes 1-3 seconds) and,
-        // since this is cleaned anyway, we could use it for another standalone document of the same language.
-        let set = this.unused_standalone_documents.get(document.language);
-        set.push(document);
-      }
-    }
-    this.unused_documents = new Set(this.foreign_documents.values());
+    this.unused_documents = new Set();
     this.virtual_lines.clear();
     this.source_lines.clear();
     this.last_virtual_line = 0;
@@ -610,9 +594,6 @@ export class VirtualDocument {
       this.changed.emit(this);
     }
     this.previous_value = this.value;
-    for (let document of this.foreign_documents.values()) {
-      document.maybe_emit_changed();
-    }
   }
 }
 
@@ -640,10 +621,6 @@ export function collect_documents(
 ): Set<VirtualDocument> {
   let collected = new Set<VirtualDocument>();
   collected.add(virtual_document);
-  for (let foreign of virtual_document.foreign_documents.values()) {
-    let foreign_languages = collect_documents(foreign);
-    foreign_languages.forEach(collected.add, collected);
-  }
   return collected;
 }
 

@@ -33,7 +33,6 @@ import {
   IPositionModel
 } from '@jupyterlab/codeeditor';
 import { PageConfig } from '@jupyterlab/coreutils';
-
 import { IDocumentManager } from '@jupyterlab/docmanager';
 import { ToolbarItems as DocToolbarItems } from '@jupyterlab/docmanager-extension';
 import { DocumentRegistry } from '@jupyterlab/docregistry';
@@ -50,6 +49,7 @@ import {
   INotebookWidgetFactory,
   Notebook,
   NotebookActions,
+  NotebookAdapter,
   NotebookModelFactory,
   NotebookPanel,
   NotebookTools,
@@ -1688,27 +1688,24 @@ function activateNotebookLanguageServer(
   }
 
   notebooks.widgetAdded.connect(async (_, notebook) => {
-    const capabilities = {
-      textDocument: {
-        synchronization: {
-          dynamicRegistration: true,
-          willSave: false,
-          didSave: true,
-          willSaveWaitUntil: false
-        }
+
+    const adapter = new NotebookAdapter(
+      {
+        app,
+        connection_manager: manager,
+        language_server_manager: manager.languageServerManager
       },
-      workspace: {
-        didChangeConfiguration: {
-          dynamicRegistration: true
-        }
-      }
-    };
-    manager.connect({
-      language: 'python',
-      documentPath: notebook.context.path,
-      capabilities,
-      hasLspSupportedFile: false
-    });
+      notebook
+    );
+    console.log('adapter', adapter);
+    
+    // manager.connect({
+    //   language: 'python',
+    //   documentPath: notebook.context.path,
+    //   virtualDocument: adapter.virtualDocument,
+    //   capabilities,
+    //   hasLspSupportedFile: false
+    // });
   });
 }
 

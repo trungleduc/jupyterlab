@@ -18,14 +18,13 @@ import {
 import type * as rpc from 'vscode-jsonrpc';
 import type * as lsp from 'vscode-languageserver-protocol';
 import type { MessageConnection } from 'vscode-ws-jsonrpc';
-import { ILSPConnection } from './tokens';
-
+import { ILspConnection } from 'lsp-ws-connection';
 // import { ClientCapabilities } from './lsp';
 // import { ILSPLogConsole } from './tokens';
 import { untilReady } from './utils';
 
-type ClientCapabilities = any
-type ILSPLogConsole = any
+type ClientCapabilities = any;
+type ILSPLogConsole = any;
 interface ILSPOptions extends ILspOptions {
   capabilities: ClientCapabilities;
   serverIdentifier?: string;
@@ -186,6 +185,19 @@ export type ServerRequests<
   readonly // has async request(params) returning a promise with result.
   [key in T]: IServerRequestHandler<key>;
 };
+
+export interface ILSPConnection extends ILspConnection {
+  serverIdentifier?: string;
+  serverLanguage?: string;
+  sendSaved(documentInfo: IDocumentInfo): void;
+  clientNotifications: ClientNotifications;
+  serverNotifications: ServerNotifications;
+  clientRequests: ClientRequests;
+  serverRequests: ServerRequests;
+  sendOpenWhenReady(documentInfo: IDocumentInfo): void
+  sendFullTextChange(text: string, documentInfo: IDocumentInfo): void
+  isReady: boolean
+}
 
 class ClientRequestHandler<
   T extends keyof IClientRequestParams = keyof IClientRequestParams

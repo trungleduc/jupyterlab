@@ -10,3 +10,7 @@
  export * from './connection_manager';
  export * from './manager';
  export * from './tokens'
+ export * from './adapters/adapter'
+ export * from './positioning'
+ export * from './virtual/document'
+ export * from './utils'

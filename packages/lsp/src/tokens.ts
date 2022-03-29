@@ -1,7 +1,8 @@
 import { ISignal } from '@lumino/signaling';
 import { ServerConnection } from '@jupyterlab/services';
-import { ILspConnection } from 'lsp-ws-connection';
 import { Token } from '@lumino/coreutils';
+import { VirtualDocument } from './virtual/document';
+import { ILSPConnection } from './connection';
 export type ILSPLogConsole = any;
 export type TLanguageServerConfigurations = any;
 export type TServerKeys = any;
@@ -67,6 +68,7 @@ export namespace ILanguageServerManager {
 }
 
 export interface ISocketConnectionOptions {
+  virtualDocument: VirtualDocument;
   /**
    * The language identifier, corresponding to the API endpoint on the LSP proxy server.
    */
@@ -82,18 +84,32 @@ export interface ISocketConnectionOptions {
 
   hasLspSupportedFile: boolean;
 }
+export interface IDocumentRegistationOptions {
+  /**
+   * The language identifier, corresponding to the API endpoint on the LSP proxy server.
+   */
+  language: string;
+  /**
+   * Path to the document in the JupyterLab space
+   */
+  document: string;
+  /**
+   * LSP capabilities describing currently supported features
+   */
+  capabilities: ClientCapabilities;
+
+  hasLspSupportedFile: boolean;
+}
 
 export interface IDocumentConnectionData {
-  documentPath: string;
-  connection: ILspConnection;
+  virtualDocument: VirtualDocument;
+  connection: ILSPConnection;
 }
 
-export interface ILSPConnection extends ILspConnection {
-   serverIdentifier?: string;
-   serverLanguage?: string
-}
+
 export interface IDocumentConnectionManager {
-  connections: Map<string, ILSPConnection>;
+  connections: Map<VirtualDocument.uri, ILSPConnection>;
+  documents: Map<VirtualDocument.uri, VirtualDocument>;
   connected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   initialized: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   disconnected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
@@ -113,7 +129,7 @@ export interface IDocumentConnectionManager {
     firstTimeoutSeconds?: number,
     secondTimeoutMinute?: number
   ): Promise<ILSPConnection | undefined>
-  unregisterDocument(documentPath: string): void
+  unregisterDocument(virtualDocument: VirtualDocument): void
 }
 
 export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
