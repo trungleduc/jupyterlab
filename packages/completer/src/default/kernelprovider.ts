@@ -43,7 +43,8 @@ export class KernelCompleterProvider implements ICompletionProvider {
       code: request.text,
       cursor_pos: request.offset
     };
-
+    console.log('content', contents);
+    
     const msg = await kernel.requestComplete(contents);
     const response = msg.content;
 

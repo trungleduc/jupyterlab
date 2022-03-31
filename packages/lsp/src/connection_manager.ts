@@ -16,6 +16,8 @@ import {
 import { expandDottedPaths, sleep, untilReady } from './utils';
 import { VirtualDocument } from './virtual/document';
 import type * as protocol from 'vscode-languageserver-protocol';
+import { WidgetAdapter } from './adapters/adapter';
+import { IDocumentWidget } from '@jupyterlab/docregistry';
 
 type AskServersToSendTraceNotifications = any;
 
@@ -26,6 +28,7 @@ type AskServersToSendTraceNotifications = any;
  */
 export class DocumentConnectionManager implements IDocumentConnectionManager {
   connections: Map<VirtualDocument.uri, LSPConnection>;
+  adapters: Map<string, WidgetAdapter<IDocumentWidget>>;
   documents: Map<VirtualDocument.uri, VirtualDocument>;
   initialized: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
   connected: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
@@ -52,6 +55,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
   constructor(options: DocumentConnectionManager.IOptions) {
     this.connections = new Map();
     this.documents = new Map();
+    this.adapters = new Map()
     this.ignoredLanguages = new Set();
     this.connected = new Signal(this);
     this.initialized = new Signal(this);
@@ -113,6 +117,10 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     this.connections.set(virtualDocument.uri, connection);
 
     return connection;
+  }
+
+  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>):void {
+    this.adapters.set(path, adapter)
   }
 
   /**

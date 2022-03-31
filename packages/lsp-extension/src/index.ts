@@ -15,12 +15,13 @@ import { IRunningSessionManagers, IRunningSessions } from '@jupyterlab/running';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 
 import { ITranslator } from '@jupyterlab/translation';
-
+import { ICompletionProviderManager } from '@jupyterlab/completer';
 import {
   DocumentConnectionManager,
   IDocumentConnectionManager,
   ILSPConnection,
-  LanguageServerManager
+  LanguageServerManager,
+  LspCompletionProvider
 } from '@jupyterlab/lsp';
 import { LabIcon, pythonIcon } from '@jupyterlab/ui-components';
 /**
@@ -32,6 +33,13 @@ const plugin: JupyterFrontEndPlugin<IDocumentConnectionManager> = {
   requires: [ISettingRegistry, ITranslator],
   optional: [IRunningSessionManagers],
   provides: IDocumentConnectionManager,
+  autoStart: true
+};
+
+const completerPlugin: JupyterFrontEndPlugin<void> = {
+  activate: activateCompleter,
+  id: '@jupyterlab/lsp-extension:completer',
+  requires: [IDocumentConnectionManager, ICompletionProviderManager],
   autoStart: true
 };
 
@@ -65,15 +73,28 @@ async function activate(
   console.log('connectionManager', connectionManager);
   // Add a sessions manager if the running extension is available
   if (runningSessionManagers) {
-    addRunningSessionManager(runningSessionManagers, connectionManager, translator);
+    addRunningSessionManager(
+      runningSessionManagers,
+      connectionManager,
+      translator
+    );
   }
 
   return connectionManager;
 }
 
+function activateCompleter(
+  app: JupyterFrontEnd,
+  lspManager: IDocumentConnectionManager,
+  providerManager: ICompletionProviderManager
+): void {
+  const provider = new LspCompletionProvider({ manager: lspManager });
+  providerManager.registerProvider(provider);
+}
+
 export class RunningLanguageServers implements IRunningSessions.IRunningItem {
   constructor(connection: ILSPConnection) {
-    this._connection = connection    
+    this._connection = connection;
   }
   open(): void {
     /** */
@@ -82,12 +103,14 @@ export class RunningLanguageServers implements IRunningSessions.IRunningItem {
     return pythonIcon;
   }
   label(): string {
-    return `${this._connection.serverIdentifier ?? ''} (${this._connection.serverLanguage ?? ''})` ;
+    return `${this._connection.serverIdentifier ?? ''} (${
+      this._connection.serverLanguage ?? ''
+    })`;
   }
   shutdown(): void {
-    this._connection.close()
+    this._connection.close();
   }
-  private _connection : ILSPConnection
+  private _connection: ILSPConnection;
 }
 
 /**
@@ -103,12 +126,16 @@ function addRunningSessionManager(
   managers.add({
     name: trans.__('Language servers'),
     running: () => {
-      const connections = new Set([...lsManager.connections.values()] ) 
-      
-      return [...connections].map(conn => new RunningLanguageServers(conn))  
+      const connections = new Set([...lsManager.connections.values()]);
+
+      return [...connections].map(conn => new RunningLanguageServers(conn));
     },
-    shutdownAll: () => {/** */},
-    refreshRunning: () => {/** */},
+    shutdownAll: () => {
+      /** */
+    },
+    refreshRunning: () => {
+      /** */
+    },
     runningChanged: lsManager.connected,
     shutdownLabel: trans.__('Shut Down'),
     shutdownAllLabel: trans.__('Shut Down All'),
@@ -120,4 +147,4 @@ function addRunningSessionManager(
 /**
  * Export the plugin as default.
  */
-export default plugin;
+export default [plugin, completerPlugin];

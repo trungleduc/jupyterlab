@@ -14,3 +14,5 @@
  export * from './positioning'
  export * from './virtual/document'
  export * from './utils'
+ export * from './connection'
+ export * from './features/completion/provider'

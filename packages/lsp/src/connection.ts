@@ -9,6 +9,7 @@ import {
   IDocumentInfo,
   ILspOptions,
   IPosition,
+  ITokenInfo,
   LspWsConnection
 } from 'lsp-ws-connection';
 import {
@@ -17,6 +18,7 @@ import {
 } from 'lsp-ws-connection/lib/server-capability-registration';
 import type * as rpc from 'vscode-jsonrpc';
 import type * as lsp from 'vscode-languageserver-protocol';
+
 import type { MessageConnection } from 'vscode-ws-jsonrpc';
 import { ILspConnection } from 'lsp-ws-connection';
 // import { ClientCapabilities } from './lsp';
@@ -197,6 +199,7 @@ export interface ILSPConnection extends ILspConnection {
   sendOpenWhenReady(documentInfo: IDocumentInfo): void
   sendFullTextChange(text: string, documentInfo: IDocumentInfo): void
   isReady: boolean
+  getCompletion(location: IPosition, token: ITokenInfo, documentInfo: IDocumentInfo, emit?: boolean, triggerCharacter?: string, triggerKind?: lsp.CompletionTriggerKind): Promise<lsp.CompletionItem[] | undefined>
 }
 
 class ClientRequestHandler<

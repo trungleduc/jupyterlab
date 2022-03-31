@@ -10,15 +10,14 @@ import {
 import { JSONObject } from '@lumino/coreutils';
 import { Signal } from '@lumino/signaling';
 
+import { ClientCapabilities, LanguageIdentifier } from '../lsp';
+import { IVirtualPosition } from '../positioning';
 import {
   IDocumentConnectionData,
   IDocumentConnectionManager,
   ILanguageServerManager,
   ISocketConnectionOptions
 } from '../tokens';
-
-import { ClientCapabilities, LanguageIdentifier } from '../lsp';
-import { IVirtualPosition } from '../positioning';
 import { VirtualDocument } from '../virtual/document';
 
 import IButton = Dialog.IButton;
@@ -45,8 +44,8 @@ export class StatusMessage {
    *        -1 if the message should stay up indefinitely;
    *        defaults to 3000ms (3 seconds)
    */
-  set(message: string, timeout: number = 1000 * 3) {
-    this.expire_timer();
+  set(message: string, timeout: number = 1000 * 3): void {
+    this.expireTimer();
     this.message = message;
     this.changed.emit();
     if (timeout !== -1) {
@@ -54,12 +53,12 @@ export class StatusMessage {
     }
   }
 
-  clear() {
+  clear(): void {
     this.message = '';
     this.changed.emit();
   }
 
-  private expire_timer() {
+  private expireTimer(): void {
     if (this.timer !== null) {
       window.clearTimeout(this.timer);
       this.timer = 0;
@@ -70,7 +69,7 @@ export class StatusMessage {
 /**
  * The values should follow the https://microsoft.github.io/language-server-protocol/specification guidelines
  */
-const mime_type_language_map: JSONObject = {
+const MIME_TYPE_LANGUAGE_MAP: JSONObject = {
   'text/x-rsrc': 'r',
   'text/x-r-source': 'r',
   // currently there are no LSP servers for IPython we are aware of
@@ -85,7 +84,7 @@ export interface IAdapterOptions {
   app: JupyterFrontEnd;
   connection_manager: IDocumentConnectionManager;
   language_server_manager: ILanguageServerManager;
-  translator: ITranslator;
+  translator?: ITranslator;
 }
 
 /**
@@ -135,7 +134,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     this.status_message = new StatusMessage();
     this.isConnected = false;
     this.trans = (options.translator || nullTranslator).load('jupyterlab-lsp');
-    console.log('create adapter', widget);
+
 
     // set up signal connections
     this.widget.context.saveState.connect(this.on_save_state, this);
@@ -178,8 +177,8 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
   get language(): LanguageIdentifier {
     // the values should follow https://microsoft.github.io/language-server-protocol/specification guidelines,
     // see the table in https://microsoft.github.io/language-server-protocol/specification#textDocumentItem
-    if (mime_type_language_map.hasOwnProperty(this.mime_type)) {
-      return mime_type_language_map[this.mime_type] as string;
+    if (MIME_TYPE_LANGUAGE_MAP.hasOwnProperty(this.mime_type)) {
+      return MIME_TYPE_LANGUAGE_MAP[this.mime_type] as string;
     } else {
       let without_parameters = this.mime_type.split(';')[0];
       let [type, subtype] = without_parameters.split('/');
@@ -269,7 +268,6 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
           connection
         );
         connection.sendSaved(virtual_document.document_info);
-
       }
     }
   }
@@ -489,7 +487,6 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     }
   }
 
-
   private async connect(virtualDocument: VirtualDocument) {
     let language = virtualDocument.language;
 
@@ -552,6 +549,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
 
   private async onContentChanged(_slot: any) {
     // update the virtual documents (sending the updates to LSP is out of scope here)
+    
     const promise = this.update_documents();
     if (!promise) {
       console.warn('Could not update documents');

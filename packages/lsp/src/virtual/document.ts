@@ -1,12 +1,13 @@
 import { CodeEditor } from '@jupyterlab/codeeditor';
 import { Signal } from '@lumino/signaling';
 import { IDocumentInfo } from 'lsp-ws-connection';
-
+import type * as CodeMirror from 'codemirror';
 import { DocumentConnectionManager } from '../connection_manager';
 
 import { LanguageIdentifier } from '../lsp';
 import {
   IEditorPosition,
+  IRootPosition,
   ISourcePosition,
   IVirtualPosition,
   PositionError
@@ -192,7 +193,8 @@ export class VirtualDocument {
 
   private _remaining_lifetime: number;
   private static instances_count = 0;
-
+  private _editorToSourceLine: Map<CodeEditor.IEditor, number>;
+  private _editorToSourceLineNew: Map<CodeEditor.IEditor, number>;
   // TODO: make this configurable, depending on the language used
   blank_lines_between_cells: number = 2;
   last_source_line: number;
@@ -214,9 +216,10 @@ export class VirtualDocument {
     this.parent = options.parent;
     this.language = options.language;
     console.log(this.options);
-    
+
     this.virtual_lines = new Map();
     this.source_lines = new Map();
+    this._editorToSourceLine = new Map();
     this.standalone = options.standalone || false;
     this.instance_id = VirtualDocument.instances_count;
     VirtualDocument.instances_count += 1;
@@ -229,6 +232,21 @@ export class VirtualDocument {
     this.unused_documents = new Set();
     this.document_info = new VirtualDocumentInfo(this);
     this.update_manager = new UpdateManager(this);
+    this.update_manager.update_began.connect(() => {
+      this._editorToSourceLineNew = new Map();
+    }, this);
+    this.update_manager.block_added.connect(
+      (_: UpdateManager, blockData: IBlockAddedInfo) => {
+        this._editorToSourceLineNew.set(
+          blockData.block.ce_editor,
+          blockData.virtual_document.last_source_line
+        );
+      },
+      this
+    );
+    this.update_manager.update_finished.connect(() => {
+      this._editorToSourceLine = this._editorToSourceLineNew;
+    }, this);
     this.clear();
   }
 
@@ -334,6 +352,21 @@ export class VirtualDocument {
     return false;
   }
 
+  transformFromEditorToRoot(
+    editor: CodeEditor.IEditor,
+    position: IEditorPosition
+  ): IRootPosition | null {
+    if (!this._editorToSourceLine.has(editor)) {
+      console.log('Editor not found in _editorToSourceLine map');
+      return null;
+    }
+    let shift = this._editorToSourceLine.get(editor)!;
+    return {
+      ...(position as CodeMirror.Position),
+      line: position.line + shift
+    } as IRootPosition;
+  }
+
   virtual_position_at_document(
     source_position: ISourcePosition
   ): IVirtualPosition {
@@ -422,10 +455,7 @@ export class VirtualDocument {
 
     let source_cell_lines = cell_code.split('\n');
 
-    let { lines} = this.prepare_code_block(
-      block,
-      editor_shift
-    );
+    let { lines } = this.prepare_code_block(block, editor_shift);
 
     for (let i = 0; i < lines.length; i++) {
       this.virtual_lines.set(this.last_virtual_line + i, {
@@ -490,7 +520,6 @@ export class VirtualDocument {
       }
     }
   }
-
 
   get virtual_id(): VirtualDocument.virtual_id {
     // for easier debugging, the language information is included in the ID:
@@ -594,6 +623,10 @@ export class VirtualDocument {
       this.changed.emit(this);
     }
     this.previous_value = this.value;
+  }
+
+  static ceToCm(position: CodeEditor.IPosition): CodeMirror.Position {
+    return { line: position.line, ch: position.column };
   }
 }
 
@@ -704,6 +737,7 @@ export class UpdateManager {
    * as to avoid an easy trap of ignoring the changes in the virtual documents.
    */
   public async update_documents(blocks: ICodeBlockOptions[]): Promise<void> {
+
     let update = new Promise<void>(async (resolve, reject) => {
       // defer the update by up to 50 ms (10 retrials * 5 ms break),
       // awaiting for the previous update to complete.

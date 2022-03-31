@@ -1698,7 +1698,7 @@ function activateNotebookLanguageServer(
       notebook
     );
     console.log('adapter', adapter);
-    
+    manager.registerAdater(notebook.context.path, adapter)
     // manager.connect({
     //   language: 'python',
     //   documentPath: notebook.context.path,

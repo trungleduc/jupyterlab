@@ -3,6 +3,8 @@ import { ServerConnection } from '@jupyterlab/services';
 import { Token } from '@lumino/coreutils';
 import { VirtualDocument } from './virtual/document';
 import { ILSPConnection } from './connection';
+import { WidgetAdapter } from './adapters/adapter';
+import { IDocumentWidget } from '@jupyterlab/docregistry';
 export type ILSPLogConsole = any;
 export type TLanguageServerConfigurations = any;
 export type TServerKeys = any;
@@ -110,6 +112,7 @@ export interface IDocumentConnectionData {
 export interface IDocumentConnectionManager {
   connections: Map<VirtualDocument.uri, ILSPConnection>;
   documents: Map<VirtualDocument.uri, VirtualDocument>;
+  adapters: Map<string, WidgetAdapter<IDocumentWidget>>;
   connected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   initialized: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   disconnected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
@@ -130,6 +133,7 @@ export interface IDocumentConnectionManager {
     secondTimeoutMinute?: number
   ): Promise<ILSPConnection | undefined>
   unregisterDocument(virtualDocument: VirtualDocument): void
+  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>):void
 }
 
 export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
