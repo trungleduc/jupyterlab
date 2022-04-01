@@ -263,6 +263,7 @@ export class Completer extends Widget {
     active.classList.add(ACTIVE_CLASS);
 
     // Add the documentation panel
+    console.log('this._showDoc', this._showDoc);
     if (this._showDoc) {
       let docPanel = document.createElement('div');
       docPanel.className = 'jp-Completer-docpanel';

@@ -27,6 +27,7 @@ import { DocumentRegistry, IDocumentWidget } from '@jupyterlab/docregistry';
 import { IFileBrowserFactory } from '@jupyterlab/filebrowser';
 import {
   FileEditor,
+  FileEditorAdapter,
   FileEditorFactory,
   IEditorTracker,
   TabSpaceStatus
@@ -43,6 +44,7 @@ import { JSONObject } from '@lumino/coreutils';
 import { Menu, Widget } from '@lumino/widgets';
 import { Commands, FACTORY, IFileTypeData } from './commands';
 import { Session } from '@jupyterlab/services';
+import { IDocumentConnectionManager } from '@jupyterlab/lsp';
 
 export { Commands } from './commands';
 
@@ -174,6 +176,15 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
   autoStart: true
 };
 
+const languageServerPlugin: JupyterFrontEndPlugin<void> = {
+  id: '@jupyterlab/fileeditor-extension:language-server',
+  requires: [IEditorTracker],
+  optional: [IDocumentConnectionManager],
+  activate: activateFileEditorLanguageServer,
+  autoStart: true
+};
+
+
 /**
  * Export the plugins as default.
  */
@@ -181,7 +192,8 @@ const plugins: JupyterFrontEndPlugin<any>[] = [
   plugin,
   lineColStatus,
   tabSpaceStatus,
-  completerPlugin
+  completerPlugin,
+  languageServerPlugin
 ];
 export default plugins;
 
@@ -470,5 +482,29 @@ function activateFileEditorCompleterService(
     editorTracker.forEach(editorWidget => {
       updateCompleter(editorTracker, editorWidget).catch(console.error);
     });
+  });
+}
+
+
+function activateFileEditorLanguageServer(
+  app: JupyterFrontEnd,
+  notebooks: IEditorTracker,
+  manager?: IDocumentConnectionManager
+): void {
+  if (!manager) {
+    return;
+  }
+
+  notebooks.widgetAdded.connect(async (_, notebook) => {
+
+    const adapter = new FileEditorAdapter(
+      {
+        app,
+        connection_manager: manager,
+        language_server_manager: manager.languageServerManager
+      },
+      notebook
+    );
+    manager.registerAdater(notebook.context.path, adapter)
   });
 }

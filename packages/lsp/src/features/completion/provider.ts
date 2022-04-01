@@ -5,6 +5,7 @@ import {
   ICompletionContext,
   ICompletionProvider
 } from '@jupyterlab/completer';
+import { IDocumentWidget } from '@jupyterlab/docregistry';
 import { LabIcon } from '@jupyterlab/ui-components';
 
 import { CompletionTriggerKind } from 'vscode-languageserver-protocol';
@@ -50,7 +51,7 @@ export class LspCompletionProvider implements ICompletionProvider {
   }
 
   async isApplicable(context: ICompletionContext): Promise<boolean> {
-    return !!context.editor;
+    return !!context.editor && !!(context.widget as IDocumentWidget).context.path;
   }
   async fetch(
     request: CompletionHandler.IRequest,
@@ -58,8 +59,8 @@ export class LspCompletionProvider implements ICompletionProvider {
   ): Promise<
     CompletionHandler.ICompletionItemsReply<CompletionHandler.ICompletionItem>
   > {
-    
-    const adapter = this._manager.adapters.get((context.session!.path))
+    const path = (context.widget as IDocumentWidget).context.path
+    const adapter = this._manager.adapters.get(path)
     if(!adapter){
       return {start:0, end:0, items: []}
     }
@@ -152,7 +153,6 @@ export class LspCompletionProvider implements ICompletionProvider {
     let connection = this.get_connection(document.uri)!;
 
     const trigger_kind = CompletionTriggerKind.Invoked;
-
     let lspCompletionItems = ((await connection.getCompletion(
       cursor,
       {
@@ -168,7 +168,7 @@ export class LspCompletionProvider implements ICompletionProvider {
 
     let prefix = token.value.slice(0, position_in_token + 1);
     let all_non_prefixed = true;
-    let items: CompletionHandler.ICompletionItem[] = [];
+    let items = [] as CompletionHandler.ICompletionItem[];    
     lspCompletionItems.forEach(match => {
 
       // Update prefix values
@@ -246,7 +246,7 @@ export class LspCompletionProvider implements ICompletionProvider {
       }
     };
     if (response.start > response.end) {
-      console.warn(
+      console.log(
         'Response contains start beyond end; this should not happen!',
         response
       );
@@ -255,7 +255,7 @@ export class LspCompletionProvider implements ICompletionProvider {
     return response;
   }
 
-  identifier = 'LspCompletionProvider';
+  identifier = 'CompletionProvider:lsp';
   renderer:
     | Completer.IRenderer<CompletionHandler.ICompletionItem>
     | null
