@@ -124,3 +124,6 @@ junit.xml
 .vscode/settings.json
 
 .jupyter_releaser_checkout
+
+# generated LSP interfaces
+packages/lsp/src/_*
