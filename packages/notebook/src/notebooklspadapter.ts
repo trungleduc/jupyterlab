@@ -23,23 +23,23 @@ import ILanguageInfoMetadata = nbformat.ILanguageInfoMetadata;
 
 export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
   editor: Notebook;
-  private ce_editor_to_cell: Map<IEditor, Cell>;
-  private known_editors_ids: Set<string>;
+  private ceEditorToCell: Map<IEditor, Cell>;
+  private knownEditorsIds: Set<string>;
 
   private _language_info: ILanguageInfoMetadata;
   private type: nbformat.CellType = 'code';
 
-  constructor(options: IAdapterOptions, editor_widget: NotebookPanel) {
-    super(options, editor_widget);
-    this.ce_editor_to_cell = new Map();
-    this.editor = editor_widget.content;
-    this.known_editors_ids = new Set();
+  constructor(options: IAdapterOptions, editorWidget: NotebookPanel) {
+    super(options, editorWidget);
+    this.ceEditorToCell = new Map();
+    this.editor = editorWidget.content;
+    this.knownEditorsIds = new Set();
     this.initialized = new Promise<void>((resolve, reject) => {
-      this.init_once_ready().then(resolve).catch(reject);
+      this.initOnceReady().then(resolve).catch(reject);
     });
   }
 
-  private async update_language_info() {
+  private async updateLanguageInfo(): Promise<void> {
     const language_info = (
       await this.widget.context.sessionContext?.session?.kernel?.info
     )?.language_info;
@@ -52,20 +52,19 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     }
   }
 
-  async on_kernel_changed(
+  async onKernelChanged(
     _session: SessionContext,
     change: Session.ISessionConnection.IKernelChangedArgs
-  ) {
+  ): Promise<void> {
     if (!change.newValue) {
       console.log('Kernel was shut down');
       return;
     }
-    console.log('on_kernel_changed', change.newValue);
     try {
       // note: we need to wait until ready before updating language info
       const old_language_info = this._language_info;
-      await untilReady(this.is_ready, -1);
-      await this.update_language_info();
+      await untilReady(this.isReady, -1);
+      await this.updateLanguageInfo();
       const new_language_info = this._language_info;
       console.log('new_language_info', new_language_info);
       if (
@@ -76,7 +75,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
         console.log(
           `Changed to ${this._language_info.name} kernel, reconnecting`
         );
-        this.reload_connection();
+        this.reloadConnection();
       } else {
         console.log(
           'Keeping old LSP connection as the new kernel uses the same langauge'
@@ -85,17 +84,17 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     } catch (err) {
       console.warn(err);
       // try to reconnect anyway
-      this.reload_connection();
+      this.reloadConnection();
     }
   }
 
-  dispose() {
+  dispose(): void {
     if (this.isDisposed) {
       return;
     }
 
     this.widget.context.sessionContext.kernelChanged.disconnect(
-      this.on_kernel_changed,
+      this.onKernelChanged,
       this
     );
     this.widget.content.activeCellChanged.disconnect(
@@ -106,10 +105,10 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     super.dispose();
 
     // editors are needed for the parent dispose() to unbind signals, so they are the last to go
-    this.ce_editor_to_cell.clear();
+    this.ceEditorToCell.clear();
   }
 
-  is_ready = () => {
+  isReady(): boolean {
     return (
       !this.widget.isDisposed &&
       this.widget.context.isReady &&
@@ -117,9 +116,9 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
       this.widget.content.widgets.length > 0 &&
       this.widget.context.sessionContext.session?.kernel != null
     );
-  };
+  }
 
-  get document_path(): string {
+  get documentPath(): string {
     return this.widget.context.path;
   }
 
@@ -127,42 +126,42 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     return this._language_info;
   }
 
-  get mime_type(): string {
-    let language_metadata = this.language_info();
-    if (!language_metadata || !language_metadata.mimetype) {
+  get mimeType(): string {
+    let languageMetadata = this.language_info();
+    if (!languageMetadata || !languageMetadata.mimetype) {
       // fallback to the code cell mime type if no kernel in use
       return this.widget.content.codeMimetype;
     }
-    return language_metadata.mimetype;
+    return languageMetadata.mimetype;
   }
 
-  get language_file_extension(): string | undefined {
-    let language_metadata = this.language_info();
-    if (!language_metadata || !language_metadata.file_extension) {
+  get languageFileExtension(): string | undefined {
+    let languageMetadata = this.language_info();
+    if (!languageMetadata || !languageMetadata.file_extension) {
       return;
     }
-    return language_metadata.file_extension.replace('.', '');
+    return languageMetadata.file_extension.replace('.', '');
   }
 
-  get wrapper_element() {
+  get wrapperElement(): HTMLElement {
     return this.widget.node;
   }
 
-  protected async init_once_ready() {
-    console.log('waiting for', this.document_path, 'to fully load');
+  protected async initOnceReady(): Promise<void> {
+    console.log('waiting for', this.documentPath, 'to fully load');
     await this.widget.context.sessionContext.ready;
-    await untilReady(this.is_ready, -1);
-    await this.update_language_info();
-    console.log(this.document_path, 'ready for connection');
+    await untilReady(this.isReady.bind(this), -1);
+    await this.updateLanguageInfo();
+    console.log(this.documentPath, 'ready for connection');
 
-    this.init_virtual();
+    this.initVirtual();
 
     // connect the document, but do not open it as the adapter will handle this
     // after registering all features
-    this.connect_document(this.virtualDocument, false).catch(console.warn);
+    this.connectDocument(this.virtualDocument, false).catch(console.warn);
 
     this.widget.context.sessionContext.kernelChanged.connect(
-      this.on_kernel_changed,
+      this.onKernelChanged,
       this
     );
 
@@ -186,14 +185,14 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
         `Model is missing for notebook ${notebook}, cannot connet cell changed signal!`
       );
     } else {
-      notebook.model.cells.changed.connect(this.handle_cell_change, this);
+      notebook.model.cells.changed.connect(this.handleCellChange, this);
     }
   }
 
-  async handle_cell_change(
+  async handleCellChange(
     cells: IObservableUndoableList<ICellModel>,
     change: IObservableList.IChangedArgs<ICellModel>
-  ) {
+  ): Promise<void> {
     let cellsAdded: ICellModel[] = [];
     let cellsRemoved: ICellModel[] = [];
     const type = this.type;
@@ -241,7 +240,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
       // in contrast to the file editor document which can be only changed by the modification of the editor content,
       // the notebook document cna also get modified by a change in the number or arrangement of editors themselves;
       // for this reason each change has to trigger documents update (so that LSP mirror is in sync).
-      await this.update_documents();
+      await this.updateDocuments();
     }
 
     for (let cellModel of cellsRemoved) {
@@ -254,7 +253,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
         );
         continue;
       }
-      this.known_editors_ids.delete(cellWidget.editor.uuid);
+      this.knownEditorsIds.delete(cellWidget.editor.uuid);
 
       // for practical purposes this editor got removed from our consideration;
       // it might seem that we should instead look for the editor indicated by
@@ -275,7 +274,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
         );
         continue;
       }
-      this.known_editors_ids.add(cellWidget.editor.uuid);
+      this.knownEditorsIds.add(cellWidget.editor.uuid);
 
       this.editorAdded.emit({
         editor: cellWidget.editor
@@ -290,7 +289,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
 
     let notebook = this.widget.content;
 
-    this.ce_editor_to_cell.clear();
+    this.ceEditorToCell.clear();
 
     if (notebook.isDisposed) {
       return [];
@@ -299,24 +298,24 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     return notebook.widgets
       .filter(cell => cell.model.type === 'code')
       .map(cell => {
-        this.ce_editor_to_cell.set(cell.editor, cell);
+        this.ceEditorToCell.set(cell.editor, cell);
         return cell.editor;
       });
   }
 
-  create_virtual_document() {
+  createVirtualDocument(): VirtualDocument {
     return new VirtualDocument({
       language: this.language,
-      path: this.document_path,
-      file_extension: this.language_file_extension,
+      path: this.documentPath,
+      file_extension: this.languageFileExtension,
       // notebooks are continuous, each cell is dependent on the previous one
       standalone: false,
       // notebooks are not supported by LSP servers
-      has_lsp_supported_file: false
+      hasLspSupportedFile: false
     });
   }
 
-  get activeEditor() {
+  get activeEditor(): CodeEditor.IEditor | undefined {
     return this.widget.content.activeCell?.editor;
   }
 
@@ -324,8 +323,8 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     if (cell.model.type !== this.type) {
       return;
     }
-    if (!this.known_editors_ids.has(cell.editor.uuid)) {
-      this.known_editors_ids.add(cell.editor.uuid);
+    if (!this.knownEditorsIds.has(cell.editor.uuid)) {
+      this.knownEditorsIds.add(cell.editor.uuid);
       this.editorAdded.emit({
         editor: cell.editor
       });
@@ -335,29 +334,29 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     });
   }
 
-  get_editor_index_at(position: IVirtualPosition): number {
-    let cell = this.get_cell_at(position);
+  getEditorIndexAt(position: IVirtualPosition): number {
+    let cell = this.getCellAt(position);
     let notebook = this.widget.content;
-    return notebook.widgets.findIndex(other_cell => {
-      return cell === other_cell;
+    return notebook.widgets.findIndex(otherCell => {
+      return cell === otherCell;
     });
   }
 
-  get_editor_index(ce_editor: CodeEditor.IEditor): number {
-    let cell = this.ce_editor_to_cell.get(ce_editor)!;
+  getEditorIndex(ceEditor: CodeEditor.IEditor): number {
+    let cell = this.ceEditorToCell.get(ceEditor)!;
     let notebook = this.widget.content;
-    return notebook.widgets.findIndex(other_cell => {
-      return cell === other_cell;
+    return notebook.widgets.findIndex(otherCell => {
+      return cell === otherCell;
     });
   }
 
-  get_editor_wrapper(ce_editor: CodeEditor.IEditor): HTMLElement {
-    let cell = this.ce_editor_to_cell.get(ce_editor)!;
+  getEditorWrapper(ceEditor: CodeEditor.IEditor): HTMLElement {
+    let cell = this.ceEditorToCell.get(ceEditor)!;
     return cell.node;
   }
 
-  private get_cell_at(pos: IVirtualPosition): Cell {
-    let ce_editor = this.virtualDocument.get_editor_at_virtual_line(pos);
-    return this.ce_editor_to_cell.get(ce_editor)!;
+  private getCellAt(pos: IVirtualPosition): Cell {
+    let ceEditor = this.virtualDocument.getEditorAtVirtualLine(pos);
+    return this.ceEditorToCell.get(ceEditor)!;
   }
 }

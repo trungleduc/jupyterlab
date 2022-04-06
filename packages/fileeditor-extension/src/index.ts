@@ -184,7 +184,6 @@ const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   autoStart: true
 };
 
-
 /**
  * Export the plugins as default.
  */
@@ -485,7 +484,6 @@ function activateFileEditorCompleterService(
   });
 }
 
-
 function activateFileEditorLanguageServer(
   app: JupyterFrontEnd,
   notebooks: IEditorTracker,
@@ -496,15 +494,13 @@ function activateFileEditorLanguageServer(
   }
 
   notebooks.widgetAdded.connect(async (_, notebook) => {
-
     const adapter = new FileEditorAdapter(
       {
         app,
-        connection_manager: manager,
-        language_server_manager: manager.languageServerManager
+        connectionManager: manager
       },
       notebook
     );
-    manager.registerAdater(notebook.context.path, adapter)
+    manager.registerAdater(notebook.context.path, adapter);
   });
 }

@@ -1688,17 +1688,15 @@ function activateNotebookLanguageServer(
   }
 
   notebooks.widgetAdded.connect(async (_, notebook) => {
-
     const adapter = new NotebookAdapter(
       {
         app,
-        connection_manager: manager,
-        language_server_manager: manager.languageServerManager
+        connectionManager: manager
       },
       notebook
     );
     console.log('adapter', adapter);
-    manager.registerAdater(notebook.context.path, adapter)
+    manager.registerAdater(notebook.context.path, adapter);
     // manager.connect({
     //   language: 'python',
     //   documentPath: notebook.context.path,

@@ -15,7 +15,6 @@ import { IVirtualPosition } from '../positioning';
 import {
   IDocumentConnectionData,
   IDocumentConnectionManager,
-  ILanguageServerManager,
   ISocketConnectionOptions
 } from '../tokens';
 import { VirtualDocument } from '../virtual/document';
@@ -82,8 +81,7 @@ export interface IEditorChangedData {
 
 export interface IAdapterOptions {
   app: JupyterFrontEnd;
-  connection_manager: IDocumentConnectionManager;
-  language_server_manager: ILanguageServerManager;
+  connectionManager: IDocumentConnectionManager;
   translator?: ITranslator;
 }
 
@@ -96,8 +94,7 @@ export interface IAdapterOptions {
 export abstract class WidgetAdapter<T extends IDocumentWidget> {
   public adapterConnected: Signal<WidgetAdapter<T>, IDocumentConnectionData>;
   public isConnected: boolean;
-  public connection_manager: IDocumentConnectionManager;
-  public status_message: StatusMessage;
+  public connectionManager: IDocumentConnectionManager;
   public trans: TranslationBundle;
   protected isDisposed = false;
 
@@ -106,53 +103,51 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
   public activeEditorChanged: Signal<WidgetAdapter<T>, IEditorChangedData>;
   public editorAdded: Signal<WidgetAdapter<T>, IEditorChangedData>;
   public editorRemoved: Signal<WidgetAdapter<T>, IEditorChangedData>;
-  public update_finished: Promise<void>;
+  public updateFinished: Promise<void>;
   public initialized: Promise<void>;
 
   virtualDocument: VirtualDocument;
   /**
    * (re)create virtual document using current path and language
    */
-  abstract create_virtual_document(): VirtualDocument;
+  abstract createVirtualDocument(): VirtualDocument;
 
-  abstract get_editor_index_at(position: IVirtualPosition): number;
+  abstract getEditorIndexAt(position: IVirtualPosition): number;
 
-  abstract get_editor_index(ce_editor: CodeEditor.IEditor): number;
+  abstract getEditorIndex(ceEditor: CodeEditor.IEditor): number;
 
-  abstract get_editor_wrapper(ce_editor: CodeEditor.IEditor): HTMLElement;
+  abstract getEditorWrapper(ceEditor: CodeEditor.IEditor): HTMLElement;
 
   // note: it could be using namespace/IOptions pattern,
   // but I do not know how to make it work with the generic type T
   // (other than using 'any' in the IOptions interface)
   protected constructor(protected options: IAdapterOptions, public widget: T) {
     this.app = options.app;
-    this.connection_manager = options.connection_manager;
+    this.connectionManager = options.connectionManager;
     this.adapterConnected = new Signal(this);
     this.activeEditorChanged = new Signal(this);
     this.editorRemoved = new Signal(this);
     this.editorAdded = new Signal(this);
-    this.status_message = new StatusMessage();
     this.isConnected = false;
     this.trans = (options.translator || nullTranslator).load('jupyterlab-lsp');
 
-
     // set up signal connections
-    this.widget.context.saveState.connect(this.on_save_state, this);
-    this.connection_manager.closed.connect(this.on_connection_closed, this);
+    this.widget.context.saveState.connect(this.onSaveState, this);
+    this.connectionManager.closed.connect(this.onConnectionClosed, this);
     this.widget.disposed.connect(this.dispose, this);
   }
 
-  on_connection_closed() {
+  onConnectionClosed(): void {
     this.dispose();
   }
 
-  dispose() {
+  dispose(): void {
     if (this.isDisposed) {
       return;
     }
 
-    this.widget.context.saveState.disconnect(this.on_save_state, this);
-    this.connection_manager.closed.disconnect(this.on_connection_closed, this);
+    this.widget.context.saveState.disconnect(this.onSaveState, this);
+    this.connectionManager.closed.disconnect(this.onConnectionClosed, this);
     this.widget.disposed.disconnect(this.dispose, this);
 
     this.disconnect();
@@ -160,28 +155,28 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     // just to be sure
     this.app = null as any;
     this.widget = null as any;
-    this.connection_manager = null as any;
+    this.connectionManager = null as any;
     this.widget = null as any;
 
     this.isDisposed = true;
   }
 
-  abstract get document_path(): string;
+  abstract get documentPath(): string;
 
-  abstract get mime_type(): string;
+  abstract get mimeType(): string;
 
-  get widget_id(): string {
+  get widgetId(): string {
     return this.widget.id;
   }
 
   get language(): LanguageIdentifier {
     // the values should follow https://microsoft.github.io/language-server-protocol/specification guidelines,
     // see the table in https://microsoft.github.io/language-server-protocol/specification#textDocumentItem
-    if (MIME_TYPE_LANGUAGE_MAP.hasOwnProperty(this.mime_type)) {
-      return MIME_TYPE_LANGUAGE_MAP[this.mime_type] as string;
+    if (MIME_TYPE_LANGUAGE_MAP.hasOwnProperty(this.mimeType)) {
+      return MIME_TYPE_LANGUAGE_MAP[this.mimeType] as string;
     } else {
-      let without_parameters = this.mime_type.split(';')[0];
-      let [type, subtype] = without_parameters.split('/');
+      let withoutParameters = this.mimeType.split(';')[0];
+      let [type, subtype] = withoutParameters.split('/');
       if (type === 'application' || type === 'text') {
         if (subtype.startsWith('x-')) {
           return subtype.substr(2);
@@ -189,15 +184,15 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
           return subtype;
         }
       } else {
-        return this.mime_type;
+        return this.mimeType;
       }
     }
   }
 
-  abstract get language_file_extension(): string | undefined;
+  abstract get languageFileExtension(): string | undefined;
 
-  disconnect() {
-    this.connection_manager.unregisterDocument(this.virtualDocument);
+  disconnect(): void {
+    this.connectionManager.unregisterDocument(this.virtualDocument);
     this.widget.context.model.contentChanged.disconnect(
       this.onContentChanged,
       this
@@ -216,7 +211,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
 
   // equivalent to triggering didClose and didOpen, as per syncing specification,
   // but also reloads the connection; used during file rename (or when it was moved)
-  protected reload_connection() {
+  protected reloadConnection(): void {
     // ignore premature calls (before the editor was initialized)
     if (this.virtualDocument == null) {
       return;
@@ -229,13 +224,16 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     // as virtual editor assumes it gets the virtual document at init,
     // just dispose virtual editor (which disposes virtual document too)
     // and re-initialize both virtual editor and document
-    this.init_virtual();
+    this.initVirtual();
 
     // reconnect
-    this.connect_document(this.virtualDocument, true).catch(console.warn);
+    this.connectDocument(this.virtualDocument, true).catch(console.warn);
   }
 
-  protected on_save_state(context: any, state: DocumentRegistry.SaveState) {
+  protected onSaveState(
+    context: DocumentRegistry.IContext<DocumentRegistry.IModel>,
+    state: DocumentRegistry.SaveState
+  ): void {
     // ignore premature calls (before the editor was initialized)
     if (this.virtualDocument == null) {
       return;
@@ -255,19 +253,19 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
       // some servers (Julia) break if they receive save notification
       // for a document that was not opened before, see:
       // https://github.com/jupyter-lsp/jupyterlab-lsp/issues/490
-      const documents_to_save = [this.virtualDocument];
+      const documentsToSave = [this.virtualDocument];
 
-      for (let virtual_document of documents_to_save) {
-        let connection = this.connection_manager.connections.get(
-          virtual_document.uri
+      for (let virtualDocument of documentsToSave) {
+        let connection = this.connectionManager.connections.get(
+          virtualDocument.uri
         )!;
         console.log(
           'Sending save notification for',
-          virtual_document.uri,
+          virtualDocument.uri,
           'to',
           connection
         );
-        connection.sendSaved(virtual_document.document_info);
+        connection.sendSaved(virtualDocument.documentInfo);
       }
     }
   }
@@ -279,32 +277,32 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
   /**
    * public for use in tests (but otherwise could be private)
    */
-  public update_documents() {
+  public updateDocuments(): Promise<void> | undefined {
     if (this.isDisposed) {
       console.warn('Cannot update documents: adapter disposed');
       return;
     }
-    return this.virtualDocument.update_manager.update_documents(
-      this.editors.map(ce_editor => {
+    return this.virtualDocument.updateManager.updateDocuments(
+      this.editors.map(ceEditor => {
         return {
-          ce_editor: ce_editor,
-          value: ce_editor.model.value.text
+          ceEditor: ceEditor,
+          value: ceEditor.model.value.text
         };
       })
     );
   }
 
-  get has_multiple_editors(): boolean {
+  get hasMultipleEditors(): boolean {
     return this.editors.length > 1;
   }
 
-  protected async on_connected(data: IDocumentConnectionData) {
+  protected async onConnected(data: IDocumentConnectionData): Promise<void> {
     let { virtualDocument } = data;
 
     this.adapterConnected.emit(data);
     this.isConnected = true;
 
-    const promise = this.update_documents();
+    const promise = this.updateDocuments();
 
     if (!promise) {
       console.warn('Could not update documents');
@@ -312,11 +310,11 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     }
     await promise.then(() => {
       // refresh the document on the LSP server
-      this.document_changed(virtualDocument, virtualDocument, true);
+      this.documentChanged(virtualDocument, virtualDocument, true);
 
       console.log(
         'virtual document(s) for',
-        this.document_path,
+        this.documentPath,
         'have been initialized'
       );
     });
@@ -401,34 +399,34 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
    * not be initialized, yet, and depending on when this is called, the client
    * may not be fully connected.
    *
-   * @param virtual_document a VirtualDocument
-   * @param send_open whether to open the document immediately
+   * @param virtualDocument a VirtualDocument
+   * @param sendOpen whether to open the document immediately
    */
-  protected async connect_document(
-    virtual_document: VirtualDocument,
-    send_open = false
+  protected async connectDocument(
+    virtualDocument: VirtualDocument,
+    sendOpen = false
   ): Promise<void> {
-    virtual_document.changed.connect(this.document_changed, this);
+    virtualDocument.changed.connect(this.documentChanged, this);
 
-    const connection_context = await this.connect(virtual_document).catch(
+    const connectionContext = await this.connect(virtualDocument).catch(
       console.warn
     );
 
-    if (!send_open) {
+    if (!sendOpen) {
       return;
     }
 
-    if (connection_context && connection_context.connection) {
-      connection_context.connection.sendOpenWhenReady(
-        virtual_document.document_info
+    if (connectionContext && connectionContext.connection) {
+      connectionContext.connection.sendOpenWhenReady(
+        virtualDocument.documentInfo
       );
     } else {
-      console.warn(`Connection for ${virtual_document.path} was not opened`);
+      console.warn(`Connection for ${virtualDocument.path} was not opened`);
     }
   }
 
-  protected init_virtual(): void {
-    let virtualDocument = this.create_virtual_document();
+  protected initVirtual(): void {
+    let virtualDocument = this.createVirtualDocument();
     if (virtualDocument == null) {
       console.error(
         'Could not initialize a VirtualDocument for adapter: ',
@@ -437,22 +435,22 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
       return;
     }
     this.virtualDocument = virtualDocument;
-    this.connect_contentChanged_signal();
+    this.connectContentChangedSignal();
   }
 
-  document_changed(
-    virtual_document: VirtualDocument,
+  documentChanged(
+    virtualDocument: VirtualDocument,
     document: VirtualDocument,
-    is_init = false
-  ) {
+    isInit = false
+  ): void {
     if (this.isDisposed) {
       console.warn('Cannot swap document: adapter disposed');
       return;
     }
 
     // TODO only send the difference, using connection.sendSelectiveChange()
-    let connection = this.connection_manager.connections.get(
-      virtual_document.uri
+    let connection = this.connectionManager.connections.get(
+      virtualDocument.uri
     );
 
     if (!connection?.isReady) {
@@ -460,30 +458,20 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
       return;
     }
 
-    // this.virtual_editor.console.log(
-    //   'LSP: virtual document',
-    //   virtual_document.id_path,
-    //   'has changed sending update'
-    // );
     connection.sendFullTextChange(
-      virtual_document.value,
-      virtual_document.document_info
+      virtualDocument.value,
+      virtualDocument.documentInfo
     );
     // the first change (initial) is not propagated to features,
     // as it has no associated CodeMirrorChange object
-    if (!is_init) {
+    if (!isInit) {
+      // TODO??
       // guarantee that the virtual editor won't perform an update of the virtual documents while
       // the changes are recorded...
       // TODO this is not ideal - why it solves the problem of some errors,
       //  it introduces an unnecessary delay. A better way could be to invalidate some of the updates when a new one comes in.
       //  but maybe not every one (then the outdated state could be kept for too long fo a user who writes very quickly)
       //  also we would not want to invalidate the updates for the purpose of autocompletion (the trigger characters)
-      // this.virtualDocument.update_manager
-      //   .with_update_lock(async () => {
-      //     await adapter.updateAfterChange();
-      //   })
-      //   .then()
-      //   .catch(console.warn);
     }
   }
 
@@ -512,14 +500,14 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
       capabilities,
       virtualDocument,
       language,
-      documentPath: this.document_path,
-      hasLspSupportedFile: virtualDocument.has_lsp_supported_file
+      documentPath: this.documentPath,
+      hasLspSupportedFile: virtualDocument.hasLspSupportedFile
     };
 
-    let connection = await this.connection_manager.connect(options);
+    let connection = await this.connectionManager.connect(options);
 
     if (connection) {
-      await this.on_connected({ virtualDocument, connection });
+      await this.onConnected({ virtualDocument, connection });
 
       return {
         connection,
@@ -540,7 +528,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
    * (range) updates this can be still implemented by comparison of before/after states of the
    * virtual documents, which is even more resilient and -obviously - editor-independent.
    */
-  private connect_contentChanged_signal() {
+  private connectContentChangedSignal(): void {
     this.widget.context.model.contentChanged.connect(
       this.onContentChanged,
       this
@@ -549,15 +537,15 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
 
   private async onContentChanged(_slot: any) {
     // update the virtual documents (sending the updates to LSP is out of scope here)
-    
-    const promise = this.update_documents();
+
+    const promise = this.updateDocuments();
     if (!promise) {
       console.warn('Could not update documents');
       return;
     }
-    this.update_finished = promise.catch(console.warn);
-    await this.update_finished;
+    this.updateFinished = promise.catch(console.warn);
+    await this.updateFinished;
   }
 
-  abstract get wrapper_element(): HTMLElement;
+  abstract get wrapperElement(): HTMLElement;
 }

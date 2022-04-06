@@ -14,19 +14,18 @@ export function untilReady(
   interval = 50,
   intervalModifier = (i: number) => i
 ): Promise<CallableFunction> {
-  return new Promise(async (resolve, reject) => {
+  return (async () => {
     let i = 0;
     while (isReady() !== true) {
       i += 1;
       if (maxRetrials !== -1 && i > maxRetrials) {
-        reject('Too many retrials');
-        break;
+        throw Error('Too many retrials');
       }
       interval = intervalModifier(interval);
       await sleep(interval);
     }
-    resolve(isReady);
-  });
+    return isReady;
+  })();
 }
 
 export const expandDottedPaths = (
@@ -76,10 +75,10 @@ export class DefaultMap<K, V> extends Map<K, V> {
   }
 
   get(k: K): V {
-    return this.get_or_create(k);
+    return this.getOrCreate(k);
   }
 
-  get_or_create(k: K, ...args: any[]): V {
+  getOrCreate(k: K, ...args: any[]): V {
     if (this.has(k)) {
       return super.get(k)!;
     } else {

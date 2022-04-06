@@ -40,3 +40,6 @@ typedoc-theme/
 # ms IDE stuff
 .history/
 .vscode/
+
+# generated LSP interfaces
+packages/lsp/src/_*

@@ -1,9 +1,8 @@
 import { CodeEditor } from '@jupyterlab/codeeditor';
 import { Signal } from '@lumino/signaling';
 import { IDocumentInfo } from 'lsp-ws-connection';
-import type * as CodeMirror from 'codemirror';
-import { DocumentConnectionManager } from '../connection_manager';
 
+import { DocumentConnectionManager } from '../connection_manager';
 import { LanguageIdentifier } from '../lsp';
 import {
   IEditorPosition,
@@ -12,9 +11,9 @@ import {
   IVirtualPosition,
   PositionError
 } from '../positioning';
-
 import { DefaultMap, untilReady } from '../utils';
 
+import type * as CodeMirror from 'codemirror';
 import IRange = CodeEditor.IRange;
 
 type language = string;
@@ -23,16 +22,16 @@ interface IVirtualLine {
   /**
    * Inspections for which document should be skipped for this virtual line?
    */
-  skip_inspect: Array<VirtualDocument.id_path>;
+  skipInspect: Array<VirtualDocument.idPath>;
   /**
    * Where does the virtual line belongs to in the source document?
    */
-  source_line: number | null;
+  sourceLine: number | null;
   editor: CodeEditor.IEditor;
 }
 
 export interface ICodeBlockOptions {
-  ce_editor: CodeEditor.IEditor;
+  ceEditor: CodeEditor.IEditor;
   value: string;
 }
 
@@ -40,28 +39,28 @@ export interface IVirtualDocumentBlock {
   /**
    * Line corresponding to the block in the entire foreign document
    */
-  virtual_line: number;
-  virtual_document: VirtualDocument;
+  virtualLine: number;
+  virtualDocument: VirtualDocument;
   editor: CodeEditor.IEditor;
 }
 
 export type ForeignDocumentsMap = Map<IRange, IVirtualDocumentBlock>;
 
 interface ISourceLine {
-  virtual_line: number;
+  virtualLine: number;
   editor: CodeEditor.IEditor;
   // shift
-  editor_line: number;
-  editor_shift: CodeEditor.IPosition;
+  editorLine: number;
+  editorShift: CodeEditor.IPosition;
   /**
    * Everything which is not in the range of foreign documents belongs to the host.
    */
-  foreign_documents_map: ForeignDocumentsMap;
+  foreignDocumentsMap: ForeignDocumentsMap;
 }
 
 export interface IForeignContext {
-  foreign_document: VirtualDocument;
-  parent_host: VirtualDocument;
+  foreignDocument: VirtualDocument;
+  parentHost: VirtualDocument;
 }
 
 /**
@@ -70,7 +69,7 @@ export interface IForeignContext {
  * @param position
  * @param range
  */
-export function is_within_range(
+export function isWithinRange(
   position: CodeEditor.IPosition,
   range: CodeEditor.IRange
 ): boolean {
@@ -116,7 +115,7 @@ export class VirtualDocumentInfo implements IDocumentInfo {
     return uris.document;
   }
 
-  get languageId() {
+  get languageId(): string {
     return this._document.language;
   }
 }
@@ -132,7 +131,7 @@ export namespace VirtualDocument {
      * adjustments for them, pretending they are simple files
      * so that the LSP servers do not refuse to cooperate.
      */
-    has_lsp_supported_file: boolean;
+    hasLspSupportedFile: boolean;
     /**
      * Being standalone is relevant to foreign documents
      * and defines whether following chunks of code in the same
@@ -167,90 +166,89 @@ export namespace VirtualDocument {
  */
 export class VirtualDocument {
   language: string;
-  public last_virtual_line: number;
-  public readonly instance_id: number;
-
   standalone: boolean;
   isDisposed = false;
+  blankLinesBetweenCells: number = 2;
+  lastSourceLine: number;
+
+  public lastVirtualLine: number;
   /**
    * the remote document uri, version and other server-related info
    */
-  public document_info: IDocumentInfo;
+  public documentInfo: IDocumentInfo;
   /**
    * Virtual lines keep all the lines present in the document AND extracted to the foreign document.
    */
-  public virtual_lines: Map<number, IVirtualLine>; // probably should go protected
-  protected source_lines: Map<number, ISourceLine>;
+  public virtualLines: Map<number, IVirtualLine>; // probably should go protected
+  public changed: Signal<VirtualDocument, VirtualDocument>;
+  public path: string;
+  public file_extension: string | undefined;
+  public hasLspSupportedFile: boolean;
+  public parent?: VirtualDocument | null;
+  public updateManager: UpdateManager;
+  public readonly instanceId: number;
 
-  protected line_blocks: Array<string>;
+  protected sourceLines: Map<number, ISourceLine>;
+  protected lineBlocks: Array<string>;
 
   // TODO: merge into unused documents {standalone: Map, continuous: Map} ?
-  protected unused_documents: Set<VirtualDocument>;
-  protected unused_standalone_documents: DefaultMap<
+  protected unusedDocuments: Set<VirtualDocument>;
+  protected unusedStandaloneDocuments: DefaultMap<
     language,
     Array<VirtualDocument>
   >;
 
-  private _remaining_lifetime: number;
-  private static instances_count = 0;
+  private _remainingLifetime: number;
   private _editorToSourceLine: Map<CodeEditor.IEditor, number>;
   private _editorToSourceLineNew: Map<CodeEditor.IEditor, number>;
-  // TODO: make this configurable, depending on the language used
-  blank_lines_between_cells: number = 2;
-  last_source_line: number;
-  private previous_value: string;
-  public changed: Signal<VirtualDocument, VirtualDocument>;
 
-  public path: string;
-  public file_extension: string | undefined;
-  public has_lsp_supported_file: boolean;
-  public parent?: VirtualDocument | null;
+  private previousValue: string;
+  private static instancesCount = 0;
   private readonly options: VirtualDocument.IOptions;
-  public update_manager: UpdateManager;
 
   constructor(options: VirtualDocument.IOptions) {
     this.options = options;
     this.path = options.path;
     this.file_extension = options.file_extension;
-    this.has_lsp_supported_file = options.has_lsp_supported_file;
+    this.hasLspSupportedFile = options.hasLspSupportedFile;
     this.parent = options.parent;
     this.language = options.language;
     console.log(this.options);
 
-    this.virtual_lines = new Map();
-    this.source_lines = new Map();
+    this.virtualLines = new Map();
+    this.sourceLines = new Map();
     this._editorToSourceLine = new Map();
     this.standalone = options.standalone || false;
-    this.instance_id = VirtualDocument.instances_count;
-    VirtualDocument.instances_count += 1;
-    this.unused_standalone_documents = new DefaultMap(
+    this.instanceId = VirtualDocument.instancesCount;
+    VirtualDocument.instancesCount += 1;
+    this.unusedStandaloneDocuments = new DefaultMap(
       () => new Array<VirtualDocument>()
     );
-    this._remaining_lifetime = 6;
+    this._remainingLifetime = 6;
 
     this.changed = new Signal(this);
-    this.unused_documents = new Set();
-    this.document_info = new VirtualDocumentInfo(this);
-    this.update_manager = new UpdateManager(this);
-    this.update_manager.update_began.connect(() => {
+    this.unusedDocuments = new Set();
+    this.documentInfo = new VirtualDocumentInfo(this);
+    this.updateManager = new UpdateManager(this);
+    this.updateManager.updateBegan.connect(() => {
       this._editorToSourceLineNew = new Map();
     }, this);
-    this.update_manager.block_added.connect(
+    this.updateManager.blockAdded.connect(
       (_: UpdateManager, blockData: IBlockAddedInfo) => {
         this._editorToSourceLineNew.set(
-          blockData.block.ce_editor,
-          blockData.virtual_document.last_source_line
+          blockData.block.ceEditor,
+          blockData.virtualDocument.lastSourceLine
         );
       },
       this
     );
-    this.update_manager.update_finished.connect(() => {
+    this.updateManager.updateFinished.connect(() => {
       this._editorToSourceLine = this._editorToSourceLineNew;
     }, this);
     this.clear();
   }
 
-  dispose() {
+  dispose(): void {
     if (this.isDisposed) {
       return;
     }
@@ -258,20 +256,20 @@ export class VirtualDocument {
 
     this.parent = null;
 
-    this.update_manager.dispose();
+    this.updateManager.dispose();
 
     // clear all the maps
 
-    this.source_lines.clear();
-    this.unused_documents.clear();
-    this.unused_standalone_documents.clear();
-    this.virtual_lines.clear();
+    this.sourceLines.clear();
+    this.unusedDocuments.clear();
+    this.unusedStandaloneDocuments.clear();
+    this.virtualLines.clear();
 
     // just to be sure - if anything is accessed after disposal (it should not) we
     // will get alterted by errors in the console AND this will limit memory leaks
 
-    this.document_info = null as any;
-    this.line_blocks = null as any;
+    this.documentInfo = null as any;
+    this.lineBlocks = null as any;
   }
 
   /**
@@ -282,54 +280,54 @@ export class VirtualDocument {
    * implementing culling of unused documents, but if and only if JupyterLab will also implement culling of
    * idle kernels - otherwise the user experience could be a bit inconsistent, and we would need to invent our own rules.
    */
-  protected get remaining_lifetime() {
+  protected get remainingLifetime(): number {
     if (!this.parent) {
       return Infinity;
     }
-    return this._remaining_lifetime;
+    return this._remainingLifetime;
   }
-  protected set remaining_lifetime(value: number) {
+  protected set remainingLifetime(value: number) {
     if (this.parent) {
-      this._remaining_lifetime = value;
+      this._remainingLifetime = value;
     }
   }
 
-  clear() {
+  clear(): void {
     // TODO - deep clear (assure that there is no memory leak)
-    this.unused_standalone_documents.clear();
+    this.unusedStandaloneDocuments.clear();
 
-    this.unused_documents = new Set();
-    this.virtual_lines.clear();
-    this.source_lines.clear();
-    this.last_virtual_line = 0;
-    this.last_source_line = 0;
-    this.line_blocks = [];
+    this.unusedDocuments = new Set();
+    this.virtualLines.clear();
+    this.sourceLines.clear();
+    this.lastVirtualLine = 0;
+    this.lastSourceLine = 0;
+    this.lineBlocks = [];
   }
 
-  document_at_source_position(position: ISourcePosition): VirtualDocument {
-    let source_line = this.source_lines.get(position.line);
+  documentAtSourcePosition(position: ISourcePosition): VirtualDocument {
+    let sourceLine = this.sourceLines.get(position.line);
 
-    if (source_line == null) {
+    if (sourceLine == null) {
       return this;
     }
 
-    let source_position_ce: CodeEditor.IPosition = {
-      line: source_line.editor_line,
+    let sourcePositionCe: CodeEditor.IPosition = {
+      line: sourceLine.editorLine,
       column: position.ch
     };
 
     for (let [
       range,
-      { virtual_document: document }
-    ] of source_line.foreign_documents_map) {
-      if (is_within_range(source_position_ce, range)) {
-        let source_position_cm = {
-          line: source_position_ce.line - range.start.line,
-          ch: source_position_ce.column - range.start.column
+      { virtualDocument: document }
+    ] of sourceLine.foreignDocumentsMap) {
+      if (isWithinRange(sourcePositionCe, range)) {
+        let sourcePositionCm = {
+          line: sourcePositionCe.line - range.start.line,
+          ch: sourcePositionCe.column - range.start.column
         };
 
-        return document.document_at_source_position(
-          source_position_cm as ISourcePosition
+        return document.documentAtSourcePosition(
+          sourcePositionCm as ISourcePosition
         );
       }
     }
@@ -337,15 +335,15 @@ export class VirtualDocument {
     return this;
   }
 
-  is_within_foreign(source_position: ISourcePosition): boolean {
-    let source_line = this.source_lines.get(source_position.line)!;
+  isWithinForeign(sourcePosition: ISourcePosition): boolean {
+    let sourceLine = this.sourceLines.get(sourcePosition.line)!;
 
-    let source_position_ce: CodeEditor.IPosition = {
-      line: source_line.editor_line,
-      column: source_position.ch
+    let sourcePositionCe: CodeEditor.IPosition = {
+      line: sourceLine.editorLine,
+      column: sourcePosition.ch
     };
-    for (let [range] of source_line.foreign_documents_map) {
-      if (is_within_range(source_position_ce, range)) {
+    for (let [range] of sourceLine.foreignDocumentsMap) {
+      if (isWithinRange(sourcePositionCe, range)) {
         return true;
       }
     }
@@ -367,164 +365,129 @@ export class VirtualDocument {
     } as IRootPosition;
   }
 
-  virtual_position_at_document(
-    source_position: ISourcePosition
-  ): IVirtualPosition {
-    let source_line = this.source_lines.get(source_position.line);
-    if (source_line == null) {
+  virtualPositionAtDocument(sourcePosition: ISourcePosition): IVirtualPosition {
+    let sourceLine = this.sourceLines.get(sourcePosition.line);
+    if (sourceLine == null) {
       throw new PositionError('Source line not mapped to virtual position');
     }
-    let virtual_line = source_line.virtual_line;
+    let virtualLine = sourceLine.virtualLine;
 
     // position inside the cell (block)
-    let source_position_ce: CodeEditor.IPosition = {
-      line: source_line.editor_line,
-      column: source_position.ch
+    let sourcePositionCe: CodeEditor.IPosition = {
+      line: sourceLine.editorLine,
+      column: sourcePosition.ch
     };
 
-    for (let [
-      range,
-      { virtual_line, virtual_document: document }
-    ] of source_line.foreign_documents_map) {
-      if (is_within_range(source_position_ce, range)) {
+    for (let [range, content] of sourceLine.foreignDocumentsMap) {
+      const { virtualLine, virtualDocument: document } = content;
+      if (isWithinRange(sourcePositionCe, range)) {
         // position inside the foreign document block
-        let source_position_cm = {
-          line: source_position_ce.line - range.start.line,
-          ch: source_position_ce.column - range.start.column
+        let sourcePositionCm = {
+          line: sourcePositionCe.line - range.start.line,
+          ch: sourcePositionCe.column - range.start.column
         };
-        if (document.is_within_foreign(source_position_cm as ISourcePosition)) {
-          return this.virtual_position_at_document(
-            source_position_cm as ISourcePosition
+        if (document.isWithinForeign(sourcePositionCm as ISourcePosition)) {
+          return this.virtualPositionAtDocument(
+            sourcePositionCm as ISourcePosition
           );
         } else {
           // where in this block in the entire foreign document?
-          source_position_cm.line += virtual_line;
-          return source_position_cm as IVirtualPosition;
+          sourcePositionCm.line += virtualLine;
+          return sourcePositionCm as IVirtualPosition;
         }
       }
     }
 
     return {
-      ch: source_position.ch,
-      line: virtual_line
+      ch: sourcePosition.ch,
+      line: virtualLine
     } as IVirtualPosition;
   }
 
-  extract_foreign_code(
+  appendCodeBlock(
     block: ICodeBlockOptions,
-    editor_shift: CodeEditor.IPosition
-  ) {
-    let cell_code = block.value;
-
-    return { cell_code_kept: cell_code };
-  }
-
-  prepare_code_block(
-    block: ICodeBlockOptions,
-    editor_shift: CodeEditor.IPosition = { line: 0, column: 0 }
-  ) {
-    let lines: Array<string>;
-    let { cell_code_kept } = this.extract_foreign_code(block, editor_shift);
-    let cell_code = cell_code_kept;
-
-    lines = cell_code.split('\n');
-
-    return { lines };
-  }
-
-  get foreign_document_maps(): ForeignDocumentsMap[] {
-    let maps = new Set<ForeignDocumentsMap>();
-    for (let line of this.source_lines.values()) {
-      maps.add(line.foreign_documents_map);
-    }
-    return [...maps.values()];
-  }
-
-  append_code_block(
-    block: ICodeBlockOptions,
-    editor_shift: CodeEditor.IPosition = { line: 0, column: 0 },
-    virtual_shift?: CodeEditor.IPosition
-  ) {
-    let cell_code = block.value;
-    let ce_editor = block.ce_editor;
+    editorShift: CodeEditor.IPosition = { line: 0, column: 0 },
+    virtualShift?: CodeEditor.IPosition
+  ): void {
+    let cellCode = block.value;
+    let ceEditor = block.ceEditor;
 
     if (this.isDisposed) {
       console.warn('Cannot append code block: document disposed');
       return;
     }
 
-    let source_cell_lines = cell_code.split('\n');
+    let sourceCellLines = cellCode.split('\n');
 
-    let { lines } = this.prepare_code_block(block, editor_shift);
+    let lines = block.value.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
-      this.virtual_lines.set(this.last_virtual_line + i, {
-        skip_inspect: [],
-        editor: ce_editor,
+      this.virtualLines.set(this.lastVirtualLine + i, {
+        skipInspect: [],
+        editor: ceEditor,
         // TODO this is incorrect, wont work if something was extracted
-        source_line: this.last_source_line + i
+        sourceLine: this.lastSourceLine + i
       });
     }
-    for (let i = 0; i < source_cell_lines.length; i++) {
-      this.source_lines.set(this.last_source_line + i, {
-        editor_line: i,
-        editor_shift: {
-          line: editor_shift.line - (virtual_shift?.line || 0),
-          column:
-            i === 0 ? editor_shift.column - (virtual_shift?.column || 0) : 0
+    for (let i = 0; i < sourceCellLines.length; i++) {
+      this.sourceLines.set(this.lastSourceLine + i, {
+        editorLine: i,
+        editorShift: {
+          line: editorShift.line - (virtualShift?.line || 0),
+          column: i === 0 ? editorShift.column - (virtualShift?.column || 0) : 0
         },
         // TODO: move those to a new abstraction layer (DocumentBlock class)
-        editor: ce_editor,
-        foreign_documents_map: new Map(),
+        editor: ceEditor,
+        foreignDocumentsMap: new Map(),
         // TODO this is incorrect, wont work if something was extracted
-        virtual_line: this.last_virtual_line + i
+        virtualLine: this.lastVirtualLine + i
       });
     }
 
-    this.last_virtual_line += lines.length;
+    this.lastVirtualLine += lines.length;
 
     // one empty line is necessary to separate code blocks, next 'n' lines are to silence linters;
     // the final cell does not get the additional lines (thanks to the use of join, see below)
-    this.line_blocks.push(lines.join('\n') + '\n');
+    this.lineBlocks.push(lines.join('\n') + '\n');
 
     // adding the virtual lines for the blank lines
-    for (let i = 0; i < this.blank_lines_between_cells; i++) {
-      this.virtual_lines.set(this.last_virtual_line + i, {
-        skip_inspect: [this.id_path],
-        editor: ce_editor,
-        source_line: null
+    for (let i = 0; i < this.blankLinesBetweenCells; i++) {
+      this.virtualLines.set(this.lastVirtualLine + i, {
+        skipInspect: [this.idPath],
+        editor: ceEditor,
+        sourceLine: null
       });
     }
 
-    this.last_virtual_line += this.blank_lines_between_cells;
-    this.last_source_line += source_cell_lines.length;
+    this.lastVirtualLine += this.blankLinesBetweenCells;
+    this.lastSourceLine += sourceCellLines.length;
   }
 
-  get value() {
-    let lines_padding = '\n'.repeat(this.blank_lines_between_cells);
-    return this.line_blocks.join(lines_padding);
+  get value(): string {
+    let linesPadding = '\n'.repeat(this.blankLinesBetweenCells);
+    return this.lineBlocks.join(linesPadding);
   }
 
-  get last_line() {
-    const lines_in_last_block = this.line_blocks[
-      this.line_blocks.length - 1
-    ].split('\n');
-    return lines_in_last_block[lines_in_last_block.length - 1];
+  get lastLine(): string {
+    const linesInLastBlock = this.lineBlocks[this.lineBlocks.length - 1].split(
+      '\n'
+    );
+    return linesInLastBlock[linesInLastBlock.length - 1];
   }
 
-  close_expired_documents() {
-    for (let document of this.unused_documents.values()) {
-      document.remaining_lifetime -= 1;
-      if (document.remaining_lifetime <= 0) {
-        /** */
+  closeExpiredDocuments(): void {
+    for (let document of this.unusedDocuments.values()) {
+      document.remainingLifetime -= 1;
+      if (document.remainingLifetime <= 0) {
+        /** TODO */
       }
     }
   }
 
-  get virtual_id(): VirtualDocument.virtual_id {
+  get virtualId(): VirtualDocument.virtualId {
     // for easier debugging, the language information is included in the ID:
     return this.standalone
-      ? this.instance_id + '(' + this.language + ')'
+      ? this.instanceId + '(' + this.language + ')'
       : this.language;
   }
 
@@ -535,11 +498,11 @@ export class VirtualDocument {
     return this.parent.ancestry.concat([this]);
   }
 
-  get id_path(): VirtualDocument.id_path {
+  get idPath(): VirtualDocument.idPath {
     if (!this.parent) {
-      return this.virtual_id;
+      return this.virtualId;
     }
-    return this.parent.id_path + '-' + this.virtual_id;
+    return this.parent.idPath + '-' + this.virtualId;
   }
 
   get uri(): VirtualDocument.uri {
@@ -547,17 +510,17 @@ export class VirtualDocument {
     if (!this.parent) {
       return encodedPath;
     }
-    return encodedPath + '.' + this.id_path + '.' + this.file_extension;
+    return encodedPath + '.' + this.idPath + '.' + this.file_extension;
   }
 
-  transform_source_to_editor(pos: ISourcePosition): IEditorPosition {
-    let source_line = this.source_lines.get(pos.line)!;
-    let editor_line = source_line.editor_line;
-    let editor_shift = source_line.editor_shift;
+  transformSourceToEditor(pos: ISourcePosition): IEditorPosition {
+    let sourceLine = this.sourceLines.get(pos.line)!;
+    let editorLine = sourceLine.editorLine;
+    let editorShift = sourceLine.editorShift;
     return {
       // only shift column in the line beginning the virtual document (first list of the editor in cell magics, but might be any line of editor in line magics!)
-      ch: pos.ch + (editor_line === 0 ? editor_shift.column : 0),
-      line: editor_line + editor_shift.line
+      ch: pos.ch + (editorLine === 0 ? editorShift.column : 0),
+      line: editorLine + editorShift.line
       // TODO or:
       //  line: pos.line + editor_shift.line - this.first_line_of_the_block(editor)
     } as IEditorPosition;
@@ -568,24 +531,22 @@ export class VirtualDocument {
   to the virtual document and those do not exist in the source document
   and thus they are absent in the editor.
   */
-  transform_virtual_to_editor(
-    virtual_position: IVirtualPosition
+  transformVirtualToEditor(
+    virtualPosition: IVirtualPosition
   ): IEditorPosition | null {
-    let source_position = this.transform_virtual_to_source(virtual_position);
-    if (source_position == null) {
+    let sourcePosition = this.transformVirtualToSource(virtualPosition);
+    if (sourcePosition == null) {
       return null;
     }
-    return this.transform_source_to_editor(source_position);
+    return this.transformSourceToEditor(sourcePosition);
   }
 
   /**
   Can be null because some lines are added as padding/anchors
   to the virtual document and those do not exist in the source document.
   */
-  transform_virtual_to_source(
-    position: IVirtualPosition
-  ): ISourcePosition | null {
-    const line = this.virtual_lines.get(position.line)!.source_line;
+  transformVirtualToSource(position: IVirtualPosition): ISourcePosition | null {
+    const line = this.virtualLines.get(position.line)!.sourceLine;
     if (line == null) {
       return null;
     }
@@ -602,27 +563,27 @@ export class VirtualDocument {
     return this.parent.root;
   }
 
-  get_editor_at_virtual_line(pos: IVirtualPosition): CodeEditor.IEditor {
+  getEditorAtVirtualLine(pos: IVirtualPosition): CodeEditor.IEditor {
     let line = pos.line;
     // tolerate overshot by one (the hanging blank line at the end)
-    if (!this.virtual_lines.has(line)) {
+    if (!this.virtualLines.has(line)) {
       line -= 1;
     }
-    return this.virtual_lines.get(line)!.editor;
+    return this.virtualLines.get(line)!.editor;
   }
 
-  get_editor_at_source_line(pos: ISourcePosition): CodeEditor.IEditor {
-    return this.source_lines.get(pos.line)!.editor;
+  getEditorAtSourceLine(pos: ISourcePosition): CodeEditor.IEditor {
+    return this.sourceLines.get(pos.line)!.editor;
   }
 
   /**
    * Recursively emits changed signal from the document or any descendant foreign document.
    */
-  maybe_emit_changed() {
-    if (this.value !== this.previous_value) {
+  maybeEmitChanged(): void {
+    if (this.value !== this.previousValue) {
       this.changed.emit(this);
     }
-    this.previous_value = this.value;
+    this.previousValue = this.value;
   }
 
   static ceToCm(position: CodeEditor.IPosition): CodeMirror.Position {
@@ -637,28 +598,28 @@ export namespace VirtualDocument {
    * handling specific, nested language usage; it will be appended to the file name
    * when creating a connection.
    */
-  export type id_path = string;
+  export type idPath = string;
   /**
    * Instance identifier for standalone documents (snippets), or language identifier
    * for documents which should be interpreted as one when stretched across cells.
    */
-  export type virtual_id = string;
+  export type virtualId = string;
   /**
    * Identifier composed of the file path and id_path.
    */
   export type uri = string;
 }
 
-export function collect_documents(
-  virtual_document: VirtualDocument
+export function collectDocuments(
+  virtualDocument: VirtualDocument
 ): Set<VirtualDocument> {
   let collected = new Set<VirtualDocument>();
-  collected.add(virtual_document);
+  collected.add(virtualDocument);
   return collected;
 }
 
 export interface IBlockAddedInfo {
-  virtual_document: VirtualDocument;
+  virtualDocument: VirtualDocument;
   block: ICodeBlockOptions;
 }
 
@@ -666,52 +627,52 @@ export class UpdateManager {
   /**
    * Virtual documents update guard.
    */
-  private is_update_in_progress: boolean = false;
+  private isUpdateInProgress: boolean = false;
 
-  private update_lock: boolean = false;
+  private updateLock: boolean = false;
 
   protected isDisposed = false;
 
   /**
    * Signal emitted by the editor that triggered the update, providing the root document of the updated documents.
    */
-  private document_updated: Signal<UpdateManager, VirtualDocument>;
-  public block_added: Signal<UpdateManager, IBlockAddedInfo>;
-  update_done: Promise<void> = new Promise<void>(resolve => {
+  private documentUpdated: Signal<UpdateManager, VirtualDocument>;
+  public blockAdded: Signal<UpdateManager, IBlockAddedInfo>;
+  updateDone: Promise<void> = new Promise<void>(resolve => {
     resolve();
   });
-  update_began: Signal<UpdateManager, ICodeBlockOptions[]>;
-  update_finished: Signal<UpdateManager, ICodeBlockOptions[]>;
+  updateBegan: Signal<UpdateManager, ICodeBlockOptions[]>;
+  updateFinished: Signal<UpdateManager, ICodeBlockOptions[]>;
 
-  constructor(private virtual_document: VirtualDocument) {
-    this.document_updated = new Signal(this);
-    this.block_added = new Signal(this);
-    this.update_began = new Signal(this);
-    this.update_finished = new Signal(this);
-    this.document_updated.connect(this.on_updated, this);
+  constructor(private virtualDocument: VirtualDocument) {
+    this.documentUpdated = new Signal(this);
+    this.blockAdded = new Signal(this);
+    this.updateBegan = new Signal(this);
+    this.updateFinished = new Signal(this);
+    this.documentUpdated.connect(this.onUpdated, this);
   }
 
-  dispose() {
+  dispose(): void {
     if (this.isDisposed) {
       return;
     }
-    this.document_updated.disconnect(this.on_updated, this);
+    this.documentUpdated.disconnect(this.onUpdated, this);
   }
 
   /**
    * Once all the foreign documents were refreshed, the unused documents (and their connections)
    * should be terminated if their lifetime has expired.
    */
-  private on_updated(manager: UpdateManager, root_document: VirtualDocument) {
+  private onUpdated(manager: UpdateManager, rootDocument: VirtualDocument) {
     try {
-      root_document.close_expired_documents();
+      rootDocument.closeExpiredDocuments();
     } catch (e) {
       console.warn('Failed to close expired documents');
     }
   }
 
-  private can_update() {
-    return !this.isDisposed && !this.is_update_in_progress && !this.update_lock;
+  private canUpdate() {
+    return !this.isDisposed && !this.isUpdateInProgress && !this.updateLock;
   }
 
   /**
@@ -720,13 +681,13 @@ export class UpdateManager {
    *  - no update will happen when executing the callback
    * @param fn - the callback to execute in update lock
    */
-  public async with_update_lock(fn: () => void): Promise<void> {
-    await untilReady(() => this.can_update(), 12, 10).then(() => {
+  public async withUpdateLock(fn: () => void): Promise<void> {
+    await untilReady(() => this.canUpdate(), 12, 10).then(() => {
       try {
-        this.update_lock = true;
+        this.updateLock = true;
         fn();
       } finally {
-        this.update_lock = false;
+        this.updateLock = false;
       }
     });
   }
@@ -736,34 +697,33 @@ export class UpdateManager {
    * and resolve a void promise. The promise does not contain the text value of the root document,
    * as to avoid an easy trap of ignoring the changes in the virtual documents.
    */
-  public async update_documents(blocks: ICodeBlockOptions[]): Promise<void> {
-
-    let update = new Promise<void>(async (resolve, reject) => {
+  public async updateDocuments(blocks: ICodeBlockOptions[]): Promise<void> {
+    let update = new Promise<void>((resolve, reject) => {
       // defer the update by up to 50 ms (10 retrials * 5 ms break),
       // awaiting for the previous update to complete.
-      await untilReady(() => this.can_update(), 10, 5).then(() => {
-        if (this.isDisposed || !this.virtual_document) {
+      untilReady(() => this.canUpdate(), 10, 5).then(() => {
+        if (this.isDisposed || !this.virtualDocument) {
           resolve();
         }
         try {
-          this.is_update_in_progress = true;
-          this.update_began.emit(blocks);
+          this.isUpdateInProgress = true;
+          this.updateBegan.emit(blocks);
 
-          this.virtual_document.clear();
+          this.virtualDocument.clear();
 
-          for (let code_block of blocks) {
-            this.block_added.emit({
-              block: code_block,
-              virtual_document: this.virtual_document
+          for (let codeBlock of blocks) {
+            this.blockAdded.emit({
+              block: codeBlock,
+              virtualDocument: this.virtualDocument
             });
-            this.virtual_document.append_code_block(code_block);
+            this.virtualDocument.appendCodeBlock(codeBlock);
           }
 
-          this.update_finished.emit(blocks);
+          this.updateFinished.emit(blocks);
 
-          if (this.virtual_document) {
-            this.document_updated.emit(this.virtual_document);
-            this.virtual_document.maybe_emit_changed();
+          if (this.virtualDocument) {
+            this.documentUpdated.emit(this.virtualDocument);
+            this.virtualDocument.maybeEmitChanged();
           }
 
           resolve();
@@ -771,11 +731,11 @@ export class UpdateManager {
           console.warn('Documents update failed:', e);
           reject(e);
         } finally {
-          this.is_update_in_progress = false;
+          this.isUpdateInProgress = false;
         }
       });
     });
-    this.update_done = update;
+    this.updateDone = update;
     return update;
   }
 }

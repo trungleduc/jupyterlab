@@ -52,17 +52,9 @@ async function activate(
   translator: ITranslator,
   runningSessionManagers: IRunningSessionManagers | null
 ): Promise<IDocumentConnectionManager> {
-  const languageServerManager = new LanguageServerManager({
-    console: {
-      ...console,
-      scope: (_: string) => {
-        /** */
-      }
-    }
-  });
+  const languageServerManager = new LanguageServerManager({});
   const connectionManager = new DocumentConnectionManager({
-    languageServerManager,
-    console: console
+    languageServerManager
   });
 
   connectionManager.initialConfigurations = {};

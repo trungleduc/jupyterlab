@@ -18,4 +18,4 @@ export * from './truststatus';
 export * from './widget';
 export * from './widgetfactory';
 export * from './executionindicator';
-export * from './notebooklspadapter'
+export * from './notebooklspadapter';

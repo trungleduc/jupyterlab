@@ -21,7 +21,6 @@ import {
 import { IDocumentConnectionManager } from '../../tokens';
 import { VirtualDocument } from '../../virtual/document';
 
-
 export interface ICompletionsSource {
   /**
    * The name displayed in the GUI
@@ -47,11 +46,13 @@ export interface ICompletionsReply
 
 export class LspCompletionProvider implements ICompletionProvider {
   constructor(options: LspCompletionProvider.IOptions) {
-    this._manager = options.manager
+    this._manager = options.manager;
   }
 
   async isApplicable(context: ICompletionContext): Promise<boolean> {
-    return !!context.editor && !!(context.widget as IDocumentWidget).context.path;
+    return (
+      !!context.editor && !!(context.widget as IDocumentWidget).context.path
+    );
   }
   async fetch(
     request: CompletionHandler.IRequest,
@@ -59,51 +60,61 @@ export class LspCompletionProvider implements ICompletionProvider {
   ): Promise<
     CompletionHandler.ICompletionItemsReply<CompletionHandler.ICompletionItem>
   > {
-    const path = (context.widget as IDocumentWidget).context.path
-    const adapter = this._manager.adapters.get(path)
-    if(!adapter){
-      return {start:0, end:0, items: []}
+    const path = (context.widget as IDocumentWidget).context.path;
+    const adapter = this._manager.adapters.get(path);
+    if (!adapter) {
+      return { start: 0, end: 0, items: [] };
     }
     const virtualDocument = adapter.virtualDocument;
     const editor = context.editor! as any;
-    
+
     const cursor = editor.getCursorPosition();
     const token = editor.getTokenForPosition(cursor);
 
     const start = editor.getPositionAt(token.offset)!;
     const end = editor.getPositionAt(token.offset + token.value.length)!;
 
-    let position_in_token = cursor.column - start.column - 1;
-    const typed_character = token.value[cursor.column - start.column - 1];
+    let positionInToken = cursor.column - start.column - 1;
+    const typedCharacter = token.value[cursor.column - start.column - 1];
 
-    let start_in_root = this.transform_from_editor_to_root(virtualDocument, editor, start);
-    let end_in_root = this.transform_from_editor_to_root(virtualDocument, editor, end);
-    let cursor_in_root = this.transform_from_editor_to_root(virtualDocument,editor, cursor);
-
-    let virtual_start =
-      virtualDocument.virtual_position_at_document(start_in_root as ISourcePosition);
-    let virtual_end =
-    virtualDocument.virtual_position_at_document(end_in_root as ISourcePosition);
-    let virtual_cursor =
-    virtualDocument.virtual_position_at_document(cursor_in_root as ISourcePosition);
-    const lsp_promise: Promise<
-      CompletionHandler.ICompletionItemsReply | undefined
-    > = this.fetch_lsp(
-      token,
-      typed_character,
-      virtual_start,
-      virtual_end,
-      virtual_cursor,
+    let startInRoot = this.transformFromEditorToRoot(
       virtualDocument,
-      position_in_token
+      editor,
+      start
+    );
+    let endInRoot = this.transformFromEditorToRoot(
+      virtualDocument,
+      editor,
+      end
+    );
+    let cursorInRoot = this.transformFromEditorToRoot(
+      virtualDocument,
+      editor,
+      cursor
     );
 
-    let promise = Promise.all([lsp_promise.catch(p => p)]).then(([lsp]) => {
-      
-      // let replies = [];
-      // if (lsp != null) {
-      //   replies.push(lsp);
-      // }
+    let virtualStart = virtualDocument.virtualPositionAtDocument(
+      startInRoot as ISourcePosition
+    );
+    let virtualEnd = virtualDocument.virtualPositionAtDocument(
+      endInRoot as ISourcePosition
+    );
+    let virtualCursor = virtualDocument.virtualPositionAtDocument(
+      cursorInRoot as ISourcePosition
+    );
+    const lspPromise: Promise<
+      CompletionHandler.ICompletionItemsReply | undefined
+    > = this.fetchLsp(
+      token,
+      typedCharacter,
+      virtualStart,
+      virtualEnd,
+      virtualCursor,
+      virtualDocument,
+      positionInToken
+    );
+
+    let promise = Promise.all([lspPromise.catch(p => p)]).then(([lsp]) => {
       return lsp;
     });
 
@@ -122,37 +133,31 @@ export class LspCompletionProvider implements ICompletionProvider {
   //     documentation: resolvedCompletionItem.documentation
   //   } as any;
   // }
-  transform_from_editor_to_root(
+  transformFromEditorToRoot(
     virtualDocument: VirtualDocument,
     editor: CodeEditor.IEditor,
     position: CodeEditor.IPosition
   ): IRootPosition | null {
-    let editor_position = VirtualDocument.ceToCm(
-      position
-    ) as IEditorPosition;
-    return virtualDocument.transformFromEditorToRoot(
-      editor,
-      editor_position
-    );
+    let editorPosition = VirtualDocument.ceToCm(position) as IEditorPosition;
+    return virtualDocument.transformFromEditorToRoot(editor, editorPosition);
   }
 
-
-  get_connection(uri: string): ILSPConnection | undefined {
-    return  this._manager.connections.get(uri)
+  getConnection(uri: string): ILSPConnection | undefined {
+    return this._manager.connections.get(uri);
   }
 
-  async fetch_lsp(
+  async fetchLsp(
     token: CodeEditor.IToken,
-    typed_character: string,
+    typedCharacter: string,
     start: IVirtualPosition,
     end: IVirtualPosition,
     cursor: IVirtualPosition,
     document: VirtualDocument,
-    position_in_token: number
+    positionInToken: number
   ): Promise<ICompletionsReply> {
-    let connection = this.get_connection(document.uri)!;
+    let connection = this.getConnection(document.uri)!;
 
-    const trigger_kind = CompletionTriggerKind.Invoked;
+    const triggerKind = CompletionTriggerKind.Invoked;
     let lspCompletionItems = ((await connection.getCompletion(
       cursor,
       {
@@ -160,23 +165,22 @@ export class LspCompletionProvider implements ICompletionProvider {
         end,
         text: token.value
       },
-      document.document_info,
+      document.documentInfo,
       false,
-      typed_character,
-      trigger_kind
+      typedCharacter,
+      triggerKind
     )) ?? []) as lsProtocol.CompletionItem[];
 
-    let prefix = token.value.slice(0, position_in_token + 1);
-    let all_non_prefixed = true;
-    let items = [] as CompletionHandler.ICompletionItem[];    
+    let prefix = token.value.slice(0, positionInToken + 1);
+    let allNonPrefixed = true;
+    let items = [] as CompletionHandler.ICompletionItem[];
     lspCompletionItems.forEach(match => {
-
       // Update prefix values
       let text = match.insertText ? match.insertText : match.label;
 
       // declare prefix presence if needed and update it
       if (text.toLowerCase().startsWith(prefix.toLowerCase())) {
-        all_non_prefixed = false;
+        allNonPrefixed = false;
         if (prefix !== token.value) {
           if (text.toLowerCase().startsWith(token.value.toLowerCase())) {
             // given a completion insert text "display_table" and two test cases:
@@ -205,13 +209,13 @@ export class LspCompletionProvider implements ICompletionProvider {
             pathPrefix = pathPrefix.substr(1);
           }
           match.label = pathPrefix + match.label;
-          all_non_prefixed = false;
+          allNonPrefixed = false;
         }
       }
 
-      let completionItem: CompletionHandler.ICompletionItem ={
+      let completionItem: CompletionHandler.ICompletionItem = {
         label: match.label,
-        documentation: match.documentation as string ?? ''
+        documentation: (match.documentation as string) ?? ''
       };
 
       items.push(completionItem as any);
@@ -219,12 +223,12 @@ export class LspCompletionProvider implements ICompletionProvider {
 
     // required to make the repetitive trigger characters like :: or ::: work for R with R languageserver,
     // see https://github.com/jupyter-lsp/jupyterlab-lsp/issues/436
-    let prefix_offset = token.value.length;
+    let prefixOffset = token.value.length;
     // completion of dictionaries for Python with jedi-language-server was
     // causing an issue for dic['<tab>'] case; to avoid this let's make
     // sure that prefix.length >= prefix.offset
-    if (all_non_prefixed && prefix_offset > prefix.length) {
-      prefix_offset = prefix.length;
+    if (allNonPrefixed && prefixOffset > prefix.length) {
+      prefixOffset = prefix.length;
     }
 
     let response = {
@@ -237,7 +241,7 @@ export class LspCompletionProvider implements ICompletionProvider {
       // a different workaround would be to prepend the token.value prefix:
       // text = token.value + text;
       // but it did not work for "from statistics <tab>" and lead to "from statisticsimport" (no space)
-      start: token.offset + (all_non_prefixed ? prefix_offset : 0),
+      start: token.offset + (allNonPrefixed ? prefixOffset : 0),
       end: token.offset + prefix.length,
       items: items,
       source: {
@@ -260,11 +264,11 @@ export class LspCompletionProvider implements ICompletionProvider {
     | Completer.IRenderer<CompletionHandler.ICompletionItem>
     | null
     | undefined;
-  private _manager : IDocumentConnectionManager
+  private _manager: IDocumentConnectionManager;
 }
 
 export namespace LspCompletionProvider {
   export interface IOptions {
-    manager: IDocumentConnectionManager
+    manager: IDocumentConnectionManager;
   }
 }

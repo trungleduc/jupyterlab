@@ -1,13 +1,15 @@
 import { PageConfig, URLExt } from '@jupyterlab/coreutils';
+import { IDocumentWidget } from '@jupyterlab/docregistry';
 import { Signal } from '@lumino/signaling';
 
+import { AskServersToSendTraceNotifications } from './_plugin';
+import { WidgetAdapter } from './adapters/adapter';
 import { ILSPConnection, LSPConnection } from './connection';
+import { ClientCapabilities } from './lsp';
 import {
-  ClientCapabilities,
   IDocumentConnectionData,
   IDocumentConnectionManager,
   ILanguageServerManager,
-  ILSPLogConsole,
   ISocketConnectionOptions,
   TLanguageServerConfigurations,
   TLanguageServerId,
@@ -15,12 +17,8 @@ import {
 } from './tokens';
 import { expandDottedPaths, sleep, untilReady } from './utils';
 import { VirtualDocument } from './virtual/document';
+
 import type * as protocol from 'vscode-languageserver-protocol';
-import { WidgetAdapter } from './adapters/adapter';
-import { IDocumentWidget } from '@jupyterlab/docregistry';
-
-type AskServersToSendTraceNotifications = any;
-
 /**
  * Each Widget with a document (whether file or a notebook) has the same DocumentConnectionManager
  * (see JupyterLabWidgetAdapter). Using id_path instead of uri led to documents being overwritten
@@ -50,12 +48,11 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
   languageServerManager: ILanguageServerManager;
   initialConfigurations: TLanguageServerConfigurations;
   private ignoredLanguages: Set<string>;
-  private readonly console: ILSPLogConsole;
 
   constructor(options: DocumentConnectionManager.IOptions) {
     this.connections = new Map();
     this.documents = new Map();
-    this.adapters = new Map()
+    this.adapters = new Map();
     this.ignoredLanguages = new Set();
     this.connected = new Signal(this);
     this.initialized = new Signal(this);
@@ -63,16 +60,18 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     this.closed = new Signal(this);
     this.documentsChanged = new Signal(this);
     this.languageServerManager = options.languageServerManager;
-    this.console = options.console;
     Private.setLanguageServerManager(options.languageServerManager);
   }
 
-  connect_document_signals(virtualDocument: VirtualDocument): void {
+  connectDocumentSignals(virtualDocument: VirtualDocument): void {
     this.documents.set(virtualDocument.uri, virtualDocument);
     this.documentsChanged.emit(this.documents);
   }
 
-  disconnect_document_signals(virtualDocument: VirtualDocument, emit = true): void {
+  disconnectDocumentSignals(
+    virtualDocument: VirtualDocument,
+    emit = true
+  ): void {
     this.documents.delete(virtualDocument.uri);
     if (emit) {
       this.documentsChanged.emit(this.documents);
@@ -82,14 +81,11 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
   private async connectSocket(
     options: ISocketConnectionOptions
   ): Promise<LSPConnection> {
-    this.console.log('Connection Socket', options);
+    console.log('Connection Socket', options);
     let { language, capabilities, virtualDocument } = options;
-    this.connect_document_signals(virtualDocument)
+    this.connectDocumentSignals(virtualDocument);
 
-    const uris = DocumentConnectionManager.solveUris(
-      virtualDocument,
-      language
-    );
+    const uris = DocumentConnectionManager.solveUris(virtualDocument, language);
 
     const matchingServers = this.languageServerManager.getMatchingServers({
       language
@@ -108,7 +104,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
       languageServerId!,
       uris,
       this.onNewConnection,
-      this.console,
       capabilities
     );
 
@@ -119,8 +114,8 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     return connection;
   }
 
-  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>):void {
-    this.adapters.set(path, adapter)
+  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>): void {
+    this.adapters.set(path, adapter);
   }
 
   /**
@@ -163,8 +158,8 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
         settings: parsedSettings
       };
 
-      this.console.log('Server Update: ', languageServerId);
-      this.console.log('Sending settings: ', serverSettings);
+      console.log('Server Update: ', languageServerId);
+      console.log('Sending settings: ', serverSettings);
       Private.updateServerConfiguration(languageServerId, serverSettings);
     }
   }
@@ -178,12 +173,12 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     console.log('onNewConnection', connection);
 
     connection.on('error', e => {
-      this.console.warn(e);
+      console.warn(e);
       // TODO invalid now
       let error: Error = e.length && e.length >= 1 ? e[0] : new Error();
       // TODO: those codes may be specific to my proxy client, need to investigate
       if (error.message.indexOf('code = 1005') !== -1) {
-        this.console.warn(`Connection failed for ${connection}`);
+        console.warn(`Connection failed for ${connection}`);
         this.forEachDocumentOfConnection(connection, virtualDocument => {
           console.warn('disconnecting ' + virtualDocument.uri);
           this.closed.emit({ connection, virtualDocument });
@@ -193,9 +188,9 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
           );
         });
       } else if (error.message.indexOf('code = 1006') !== -1) {
-        this.console.warn('Connection closed by the server');
+        console.warn('Connection closed by the server');
       } else {
-        this.console.error('Connection error:', e);
+        console.error('Connection error:', e);
       }
     });
 
@@ -204,16 +199,15 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
       this.forEachDocumentOfConnection(connection, virtualDocument => {
         // TODO: is this still necessary, e.g. for status bar to update responsively?
         this.initialized.emit({ connection, virtualDocument });
-      }); 
+      });
       this.updateServerConfigurations(this.initialConfigurations);
-
     });
 
     connection.on('close', closedManually => {
       if (!closedManually) {
-        this.console.warn('Connection unexpectedly disconnected');
+        console.warn('Connection unexpectedly disconnected');
       } else {
-        this.console.warn('Connection closed');
+        console.warn('Connection closed');
         this.forEachDocumentOfConnection(connection, virtualDocument => {
           this.closed.emit({ connection, virtualDocument });
         });
@@ -245,10 +239,10 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
           success = true;
         })
         .catch(e => {
-          this.console.warn(e);
+          console.warn(e);
         });
 
-      this.console.log(
+      console.log(
         'will attempt to re-connect in ' + interval / 1000 + ' seconds'
       );
       await sleep(interval);
@@ -265,7 +259,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     firstTimeoutSeconds = 30,
     secondTimeoutMinutes = 5
   ): Promise<ILSPConnection | undefined> {
-    this.console.log('connection requested', options);
+    console.log('connection requested', options);
     let connection = await this.connectSocket(options);
     console.log('connection', connection);
 
@@ -283,7 +277,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
           150
         );
       } catch {
-        this.console.warn(
+        console.warn(
           `Connection to ${virtualDocument.uri} timed out after ${firstTimeoutSeconds} seconds, will continue retrying for another ${secondTimeoutMinutes} minutes`
         );
         try {
@@ -293,7 +287,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
             1000
           );
         } catch {
-          this.console.warn(
+          console.warn(
             `Connection to ${virtualDocument.uri} timed out again after ${secondTimeoutMinutes} minutes, giving up`
           );
           return;
@@ -344,7 +338,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
 export namespace DocumentConnectionManager {
   export interface IOptions {
     languageServerManager: ILanguageServerManager;
-    console: ILSPLogConsole;
   }
 
   export function solveUris(
@@ -355,7 +348,9 @@ export namespace DocumentConnectionManager {
     const rootUri = PageConfig.getOption('rootUri');
     const virtualDocumentsUri = PageConfig.getOption('virtualDocumentsUri');
 
-    const baseUri = virtualDocument.has_lsp_supported_file ? rootUri : virtualDocumentsUri;
+    const baseUri = virtualDocument.hasLspSupportedFile
+      ? rootUri
+      : virtualDocumentsUri;
 
     // for now take the best match only
     const matchingServers = Private.getLanguageServerManager().getMatchingServers(
@@ -425,7 +420,6 @@ namespace Private {
     languageServerId: TLanguageServerId,
     uris: DocumentConnectionManager.IURIs,
     onCreate: (connection: LSPConnection) => void,
-    console: ILSPLogConsole,
     capabilities: ClientCapabilities
   ): Promise<LSPConnection> {
     let connection = _connections.get(languageServerId);
@@ -437,7 +431,6 @@ namespace Private {
         serverUri: uris.server,
         rootUri: uris.base,
         serverIdentifier: languageServerId,
-        console: console,
         capabilities: capabilities
       });
       // TODO: remove remaining unbounded users of connection.on

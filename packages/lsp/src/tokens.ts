@@ -1,17 +1,14 @@
-import { ISignal } from '@lumino/signaling';
+import { IDocumentWidget } from '@jupyterlab/docregistry';
 import { ServerConnection } from '@jupyterlab/services';
 import { Token } from '@lumino/coreutils';
-import { VirtualDocument } from './virtual/document';
-import { ILSPConnection } from './connection';
+import { ISignal } from '@lumino/signaling';
+
+import { LanguageServer2 as LSPLanguageServerSettings } from './_plugin';
+import * as SCHEMA from './_schema';
 import { WidgetAdapter } from './adapters/adapter';
-import { IDocumentWidget } from '@jupyterlab/docregistry';
-export type ILSPLogConsole = any;
-export type TLanguageServerConfigurations = any;
-export type TServerKeys = any;
-export type TSessionMap = any;
-export type TSpecsMap = any;
-export type TLanguageId = string;
-export type ClientCapabilities = any;
+import { ILSPConnection } from './connection';
+import { ClientCapabilities } from './lsp';
+import { VirtualDocument } from './virtual/document';
 
 export type TLanguageServerId =
   | 'pylsp'
@@ -24,6 +21,16 @@ export type TLanguageServerId =
   | 'vscode-json-languageserver-bin'
   | 'yaml-language-server'
   | 'r-languageserver';
+
+export type TServerKeys = TLanguageServerId;
+export type TLanguageServerConfigurations = Partial<
+  Record<TServerKeys, LSPLanguageServerSettings>
+>;
+
+export type TSessionMap = Map<TServerKeys, SCHEMA.LanguageServerSession>;
+export type TSpecsMap = Map<TServerKeys, SCHEMA.LanguageServerSpec>;
+
+export type TLanguageId = string;
 
 export interface ILanguageServerManager {
   sessionsChanged: ISignal<ILanguageServerManager, void>;
@@ -61,7 +68,6 @@ export namespace ILanguageServerManager {
      * The interval for retries, default 10 seconds.
      */
     retriesInterval?: number;
-    console: ILSPLogConsole;
   }
   export interface IGetServerIdOptions {
     language?: TLanguageId;
@@ -108,7 +114,6 @@ export interface IDocumentConnectionData {
   connection: ILSPConnection;
 }
 
-
 export interface IDocumentConnectionManager {
   connections: Map<VirtualDocument.uri, ILSPConnection>;
   documents: Map<VirtualDocument.uri, VirtualDocument>;
@@ -131,11 +136,11 @@ export interface IDocumentConnectionManager {
     options: ISocketConnectionOptions,
     firstTimeoutSeconds?: number,
     secondTimeoutMinute?: number
-  ): Promise<ILSPConnection | undefined>
-  unregisterDocument(virtualDocument: VirtualDocument): void
-  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>):void
+  ): Promise<ILSPConnection | undefined>;
+  unregisterDocument(virtualDocument: VirtualDocument): void;
+  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>): void;
 }
 
 export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
   '@jupyterlab/lsp:IDocumentConnectionManager'
-)
+);

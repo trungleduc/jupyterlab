@@ -7,6 +7,7 @@ import {
   AnyCompletion,
   AnyLocation,
   IDocumentInfo,
+  ILspConnection,
   ILspOptions,
   IPosition,
   ITokenInfo,
@@ -16,21 +17,20 @@ import {
   registerServerCapability,
   unregisterServerCapability
 } from 'lsp-ws-connection/lib/server-capability-registration';
+
+import { untilReady } from './utils';
+
 import type * as rpc from 'vscode-jsonrpc';
 import type * as lsp from 'vscode-languageserver-protocol';
 
 import type { MessageConnection } from 'vscode-ws-jsonrpc';
-import { ILspConnection } from 'lsp-ws-connection';
 // import { ClientCapabilities } from './lsp';
 // import { ILSPLogConsole } from './tokens';
-import { untilReady } from './utils';
-
 type ClientCapabilities = any;
 type ILSPLogConsole = any;
 interface ILSPOptions extends ILspOptions {
   capabilities: ClientCapabilities;
   serverIdentifier?: string;
-  console: ILSPLogConsole;
 }
 
 /**
@@ -196,10 +196,17 @@ export interface ILSPConnection extends ILspConnection {
   serverNotifications: ServerNotifications;
   clientRequests: ClientRequests;
   serverRequests: ServerRequests;
-  sendOpenWhenReady(documentInfo: IDocumentInfo): void
-  sendFullTextChange(text: string, documentInfo: IDocumentInfo): void
-  isReady: boolean
-  getCompletion(location: IPosition, token: ITokenInfo, documentInfo: IDocumentInfo, emit?: boolean, triggerCharacter?: string, triggerKind?: lsp.CompletionTriggerKind): Promise<lsp.CompletionItem[] | undefined>
+  sendOpenWhenReady(documentInfo: IDocumentInfo): void;
+  sendFullTextChange(text: string, documentInfo: IDocumentInfo): void;
+  isReady: boolean;
+  getCompletion(
+    location: IPosition,
+    token: ITokenInfo,
+    documentInfo: IDocumentInfo,
+    emit?: boolean,
+    triggerCharacter?: string,
+    triggerKind?: lsp.CompletionTriggerKind
+  ): Promise<lsp.CompletionItem[] | undefined>;
 }
 
 class ClientRequestHandler<
@@ -212,14 +219,14 @@ class ClientRequestHandler<
   ) {}
   request(params: IClientRequestParams[T]): Promise<IClientResult[T]> {
     // TODO check if is ready?
-    this.emitter.log(MessageKind.client_requested, {
+    this.emitter.log(MessageKind.clientRequested, {
       method: this.method,
       message: params
     });
     return this.connection
       .sendRequest(this.method, params)
       .then((result: IClientResult[T]) => {
-        this.emitter.log(MessageKind.result_for_client, {
+        this.emitter.log(MessageKind.resultForClient, {
           method: this.method,
           message: params
         });
@@ -251,7 +258,7 @@ class ServerRequestHandler<
   private handle(
     request: IServerRequestParams[T]
   ): Promise<IServerResult[T] | undefined> {
-    this.emitter.log(MessageKind.server_requested, {
+    this.emitter.log(MessageKind.serverRequested, {
       method: this.method,
       message: request
     });
@@ -259,7 +266,7 @@ class ServerRequestHandler<
       return new Promise(() => undefined);
     }
     return this._handler(request, this.emitter).then(result => {
-      this.emitter.log(MessageKind.response_for_server, {
+      this.emitter.log(MessageKind.responseForServer, {
         method: this.method,
         message: result
       });
@@ -331,12 +338,12 @@ function createMethodMap<T, H, U extends keyof T = keyof T>(
 }
 
 enum MessageKind {
-  client_notified_server,
-  server_notified_client,
-  server_requested,
-  client_requested,
-  result_for_client,
-  response_for_server
+  clientNotifiedServer,
+  serverNotifiedClient,
+  serverRequested,
+  clientRequested,
+  resultForClient,
+  responseForServer
 }
 
 interface IMessageLog<T extends AnyMethod = AnyMethod> {
@@ -359,7 +366,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
 
   public log(kind: MessageKind, message: IMessageLog): void {
     if (this.logAllCommunication) {
-      this.console.log(kind, message);
+      console.log(kind, message);
     }
   }
 
@@ -402,7 +409,6 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     this.logAllCommunication = false;
     this.serverIdentifier = options.serverIdentifier;
     this.serverLanguage = options.languageId;
-    this.console = options.console;
     this.documentsToOpen = [];
     this.clientNotifications = this.constructNotificationHandlers<
       ClientNotifications
@@ -429,7 +435,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     };
   }
 
-  sendOpenWhenReady(documentInfo: IDocumentInfo) {
+  sendOpenWhenReady(documentInfo: IDocumentInfo): void {
     if (this.isReady) {
       this.sendOpen(documentInfo);
     } else {
@@ -437,7 +443,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     }
   }
 
-  protected onServerInitialized(params: lsp.InitializeResult) {
+  protected onServerInitialized(params: lsp.InitializeResult): void {
     this.afterInitialized();
     super.onServerInitialized(params);
     while (this.documentsToOpen.length) {
@@ -445,13 +451,13 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     }
   }
 
-  protected afterInitialized() {
+  protected afterInitialized(): void {
     for (const method of Object.values(
       Method.ServerNotification
     ) as (keyof ServerNotifications)[]) {
       const signal = this.serverNotifications[method] as Signal<any, any>;
       this.connection.onNotification(method, params => {
-        this.log(MessageKind.server_notified_client, {
+        this.log(MessageKind.serverNotifiedClient, {
           method,
           message: params
         });
@@ -464,7 +470,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     ) as (keyof ClientNotifications)[]) {
       const signal = this.clientNotifications[method] as Signal<any, any>;
       signal.connect((emitter, params) => {
-        this.log(MessageKind.client_notified_server, {
+        this.log(MessageKind.clientNotifiedServer, {
           method,
           message: params
         });
@@ -489,14 +495,14 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
                 capabilityRegistration
               );
               if (updatedCapabilities === null) {
-                this.console.error(
+                console.error(
                   `Failed to register server capability: ${capabilityRegistration}`
                 );
                 return;
               }
               this.serverCapabilities = updatedCapabilities;
             } catch (err) {
-              this.console.error(err);
+              console.error(err);
             }
           }
         );
@@ -531,7 +537,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
   public sendSelectiveChange(
     changeEvent: lsp.TextDocumentContentChangeEvent,
     documentInfo: IDocumentInfo
-  ) {
+  ): void {
     this._sendChange([changeEvent], documentInfo);
   }
 
@@ -542,7 +548,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
   /**
    * @deprecated The method should not be used in new code. Use provides() instead.
    */
-  public isRenameSupported() {
+  public isRenameSupported(): boolean {
     return !!(
       this.serverCapabilities && this.serverCapabilities.renameProvider
     );
@@ -597,7 +603,7 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
       .then(() => {
         this.connection.onClose(() => {
           this.isConnected = false;
-          this.emit('close', this.closing_manually);
+          this.emit('close', this.closingManually);
         });
       })
       .catch(() => {
@@ -606,14 +612,14 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     return this;
   }
 
-  private closing_manually = false;
+  private closingManually = false;
 
-  public close() {
+  public close(): void {
     try {
-      this.closing_manually = true;
+      this.closingManually = true;
       super.close();
     } catch (e) {
-      this.closing_manually = false;
+      this.closingManually = false;
     }
   }
 
@@ -641,7 +647,9 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
     documentInfo.version++;
   }
 
-  async getCompletionResolve(completionItem: lsp.CompletionItem) {
+  async getCompletionResolve(
+    completionItem: lsp.CompletionItem
+  ): Promise<lsp.CompletionItem | undefined> {
     if (!this.isReady || !this.isCompletionResolveProvider()) {
       return;
     }

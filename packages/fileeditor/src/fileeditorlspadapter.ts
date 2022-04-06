@@ -1,4 +1,3 @@
-
 import { CodeEditor } from '@jupyterlab/codeeditor';
 import { CodeMirrorEditor } from '@jupyterlab/codemirror';
 import { IDocumentWidget } from '@jupyterlab/docregistry';
@@ -11,17 +10,15 @@ import {
 
 import { FileEditor } from './widget';
 
-
-
 export class FileEditorAdapter extends WidgetAdapter<
   IDocumentWidget<FileEditor>
 > {
   editor: FileEditor;
 
-  get document_path() {
+  get documentPath(): string {
     return this.widget.context.path;
   }
-  get mime_type() {
+  get mimeType(): string {
     const codeMirrorMimeType = this.editor.model.mimeType;
     const contentsModel = this.editor.context.contentsModel;
 
@@ -45,12 +42,12 @@ export class FileEditorAdapter extends WidgetAdapter<
     }
   }
 
-  get language_file_extension(): string {
-    let parts = this.document_path.split('.');
+  get languageFileExtension(): string {
+    let parts = this.documentPath.split('.');
     return parts[parts.length - 1];
   }
 
-  get ce_editor(): CodeMirrorEditor {
+  get ceEditor(): CodeMirrorEditor {
     return this.editor.editor as CodeMirrorEditor;
   }
 
@@ -60,65 +57,64 @@ export class FileEditorAdapter extends WidgetAdapter<
 
   constructor(
     options: IAdapterOptions,
-    editor_widget: IDocumentWidget<FileEditor>
+    editorWidget: IDocumentWidget<FileEditor>
   ) {
-    super(options, editor_widget);
-    this.editor = editor_widget.content;
+    super(options, editorWidget);
+    this.editor = editorWidget.content;
     this.initialized = new Promise<void>((resolve, reject) => {
-      this.init_once_ready().then(resolve).catch(reject);
+      this.initOnceReady().then(resolve).catch(reject);
     });
   }
 
-  get wrapper_element() {
+  get wrapperElement(): HTMLElement {
     return this.widget.node;
   }
 
-  get path() {
+  get path(): string {
     return this.widget.context.path;
   }
 
-  protected async init_once_ready() {
-    console.log('waiting for', this.document_path, 'to fully load');
+  protected async initOnceReady(): Promise<void> {
+    console.log('waiting for', this.documentPath, 'to fully load');
     if (!this.editor.context.isReady) {
       await this.editor.context.ready;
     }
-    console.log(this.document_path, 'ready for connection');
+    console.log(this.documentPath, 'ready for connection');
 
-    this.init_virtual();
+    this.initVirtual();
 
     // connect the document, but do not open it as the adapter will handle this
     // after registering all features
-    this.connect_document(this.virtualDocument, false).catch(console.warn);
+    this.connectDocument(this.virtualDocument, false).catch(console.warn);
 
-    this.editor.model.mimeTypeChanged.connect(this.reload_connection, this);
+    this.editor.model.mimeTypeChanged.connect(this.reloadConnection, this);
   }
 
   get editors(): CodeEditor.IEditor[] {
     return [this.editor.editor];
   }
 
-  create_virtual_document() {
+  createVirtualDocument(): VirtualDocument {
     return new VirtualDocument({
       language: this.language,
-      path: this.document_path,
-      file_extension: this.language_file_extension,
+      path: this.documentPath,
+      file_extension: this.languageFileExtension,
       // notebooks are continuous, each cell is dependent on the previous one
       standalone: true,
       // notebooks are not supported by LSP servers
-      has_lsp_supported_file: true
+      hasLspSupportedFile: true
     });
   }
 
-  get_editor_index_at(position: IVirtualPosition): number {
+  getEditorIndexAt(position: IVirtualPosition): number {
     return 0;
   }
 
-  get_editor_index(ce_editor: CodeEditor.IEditor): number {
+  getEditorIndex(ceEditor: CodeEditor.IEditor): number {
     return 0;
   }
 
-  get_editor_wrapper(ce_editor: CodeEditor.IEditor): HTMLElement {
-    return this.wrapper_element;
+  getEditorWrapper(ceEditor: CodeEditor.IEditor): HTMLElement {
+    return this.wrapperElement;
   }
-
 }

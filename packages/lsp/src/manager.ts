@@ -1,15 +1,15 @@
 import { PageConfig, URLExt } from '@jupyterlab/coreutils';
 import { ServerConnection } from '@jupyterlab/services';
-import { Signal } from '@lumino/signaling';
+import { ISignal, Signal } from '@lumino/signaling';
 
 import {
   ILanguageServerManager,
-  ILSPLogConsole,
   TLanguageServerConfigurations,
   TLanguageServerId,
   TSessionMap,
   TSpecsMap
 } from './tokens';
+import { ServerSpecProperties } from './_schema';
 
 export class LanguageServerManager implements ILanguageServerManager {
   protected _sessionsChanged: Signal<ILanguageServerManager, void> = new Signal<
@@ -26,7 +26,6 @@ export class LanguageServerManager implements ILanguageServerManager {
   private _retriesInterval: number;
   private _configuration: TLanguageServerConfigurations;
   private _warningsEmitted = new Set<string>();
-  private console: ILSPLogConsole;
 
   constructor(options: ILanguageServerManager.IOptions) {
     this._settings = options.settings || ServerConnection.makeSettings();
@@ -35,19 +34,18 @@ export class LanguageServerManager implements ILanguageServerManager {
     this._retriesInterval = options.retriesInterval || 10000;
     this._statusCode = -1;
     this._configuration = {};
-    this.console = options.console;
     this.fetchSessions().catch(e => console.error(e));
   }
 
-  get specs() {
+  get specs(): TSpecsMap {
     return this._specs;
   }
 
-  get statusUrl() {
+  get statusUrl(): string {
     return URLExt.join(this._baseUrl, ILanguageServerManager.URL_NS, 'status');
   }
 
-  get sessionsChanged() {
+  get sessionsChanged(): ISignal<ILanguageServerManager, void> {
     return this._sessionsChanged;
   }
 
@@ -62,28 +60,31 @@ export class LanguageServerManager implements ILanguageServerManager {
   protected warnOnce(arg: string): void {
     if (!this._warningsEmitted.has(arg)) {
       this._warningsEmitted.add(arg);
-      this.console.warn(arg);
+      console.warn(arg);
     }
   }
 
-  protected _comparePriorities(a: TLanguageServerId, b: TLanguageServerId) {
+  protected _comparePriorities(
+    a: TLanguageServerId,
+    b: TLanguageServerId
+  ): number {
     const DEFAULT_PRIORITY = 50;
-    const a_priority = this._configuration[a]?.priority ?? DEFAULT_PRIORITY;
-    const b_priority = this._configuration[b]?.priority ?? DEFAULT_PRIORITY;
-    if (a_priority == b_priority) {
+    const aPriority = this._configuration[a]?.priority ?? DEFAULT_PRIORITY;
+    const bPriority = this._configuration[b]?.priority ?? DEFAULT_PRIORITY;
+    if (aPriority == bPriority) {
       this.warnOnce(
         `Two matching servers: ${a} and ${b} have the same priority; choose which one to use by changing the priority in Advanced Settings Editor`
       );
       return a.localeCompare(b);
     }
     // higher priority = higher in the list (descending order)
-    return b_priority - a_priority;
+    return bPriority - aPriority;
   }
 
   protected isMatchingSpec(
     options: ILanguageServerManager.IGetServerIdOptions,
-    spec: any
-  ): string[] {
+    spec: ServerSpecProperties
+  ): boolean {
     // most things speak language
     // if language is not known, it is guessed based on MIME type earlier
     // so some language should be available by now (which can be not so obvious, e.g. "plain" for txt documents)
@@ -97,12 +98,12 @@ export class LanguageServerManager implements ILanguageServerManager {
     options: ILanguageServerManager.IGetServerIdOptions
   ): TLanguageServerId[] {
     if (!options.language) {
-      this.console.error(
+      console.error(
         'Cannot match server by language: language not available; ensure that kernel and specs provide language and MIME type'
       );
       return [];
     }
-    
+
     const matchingSessionsKeys: TLanguageServerId[] = [];
 
     for (const [key, session] of this._sessions.entries()) {
@@ -131,7 +132,7 @@ export class LanguageServerManager implements ILanguageServerManager {
     return this._statusCode;
   }
 
-  async fetchSessions() {
+  async fetchSessions(): Promise<void> {
     let response = await ServerConnection.makeRequest(
       this.statusUrl,
       { method: 'GET' },
