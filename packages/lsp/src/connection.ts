@@ -487,6 +487,8 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
 
     this.serverRequests['client/registerCapability'].setHandler(
       async (params: lsp.RegistrationParams) => {
+        console.log('registerCapability', params);
+
         params.registrations.forEach(
           (capabilityRegistration: lsp.Registration) => {
             try {
@@ -596,7 +598,6 @@ export class LSPConnection extends LspWsConnection implements ILSPConnection {
 
   public connect(socket: WebSocket): this {
     super.connect(socket);
-
     untilReady(() => {
       return this.isConnected;
     }, -1)

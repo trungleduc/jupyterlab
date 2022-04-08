@@ -38,7 +38,10 @@ import { ToolbarItems as DocToolbarItems } from '@jupyterlab/docmanager-extensio
 import { DocumentRegistry } from '@jupyterlab/docregistry';
 import { IFileBrowserFactory } from '@jupyterlab/filebrowser';
 import { ILauncher } from '@jupyterlab/launcher';
-import { IDocumentConnectionManager } from '@jupyterlab/lsp';
+import {
+  IDocumentConnectionManager,
+  ILSPFeatureManager
+} from '@jupyterlab/lsp';
 import { IMainMenu } from '@jupyterlab/mainmenu';
 import * as nbformat from '@jupyterlab/nbformat';
 import {
@@ -767,7 +770,7 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
 const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/notebook-extension:language-server',
   requires: [INotebookTracker],
-  optional: [IDocumentConnectionManager],
+  optional: [IDocumentConnectionManager, ILSPFeatureManager],
   activate: activateNotebookLanguageServer,
   autoStart: true
 };
@@ -1681,9 +1684,10 @@ function activateNotebookCompleterService(
 function activateNotebookLanguageServer(
   app: JupyterFrontEnd,
   notebooks: INotebookTracker,
-  manager?: IDocumentConnectionManager
+  connectionManager?: IDocumentConnectionManager,
+  featureManager?: ILSPFeatureManager
 ): void {
-  if (!manager) {
+  if (!connectionManager || !featureManager) {
     return;
   }
 
@@ -1691,19 +1695,12 @@ function activateNotebookLanguageServer(
     const adapter = new NotebookAdapter(
       {
         app,
-        connectionManager: manager
+        connectionManager,
+        featureManager
       },
       notebook
     );
-    console.log('adapter', adapter);
-    manager.registerAdater(notebook.context.path, adapter);
-    // manager.connect({
-    //   language: 'python',
-    //   documentPath: notebook.context.path,
-    //   virtualDocument: adapter.virtualDocument,
-    //   capabilities,
-    //   hasLspSupportedFile: false
-    // });
+    connectionManager.registerAdater(notebook.context.path, adapter);
   });
 }
 

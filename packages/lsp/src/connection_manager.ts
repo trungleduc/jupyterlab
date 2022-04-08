@@ -81,7 +81,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
   private async connectSocket(
     options: ISocketConnectionOptions
   ): Promise<LSPConnection> {
-    console.log('Connection Socket', options);
     let { language, capabilities, virtualDocument } = options;
     this.connectDocumentSignals(virtualDocument);
 
@@ -116,6 +115,9 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
 
   registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>): void {
     this.adapters.set(path, adapter);
+    adapter.widget.disposed.connect(() => {
+      this.adapters.delete(path);
+    });
   }
 
   /**
@@ -170,8 +172,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
    * singletons).
    */
   onNewConnection = (connection: LSPConnection): void => {
-    console.log('onNewConnection', connection);
-
     connection.on('error', e => {
       console.warn(e);
       // TODO invalid now
@@ -252,6 +252,10 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     }
   }
 
+  public disconnect(languageId: TLanguageServerId): void {
+    Private.disconnect(languageId);
+  }
+
   // async registerDocument(options: IDocumentRegistationOptions) {}
 
   async connect(
@@ -259,11 +263,8 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     firstTimeoutSeconds = 30,
     secondTimeoutMinutes = 5
   ): Promise<ILSPConnection | undefined> {
-    console.log('connection requested', options);
     let connection = await this.connectSocket(options);
-    console.log('connection', connection);
-
-    let { documentPath, virtualDocument } = options;
+    let { virtualDocument } = options;
 
     if (!connection.isReady) {
       try {
@@ -294,8 +295,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
         }
       }
     }
-
-    console.log(documentPath, 'connected.');
 
     this.connected.emit({ connection, virtualDocument });
 
@@ -412,6 +411,14 @@ namespace Private {
     _languageServerManager = languageServerManager;
   }
 
+  export function disconnect(languageServerId: TLanguageServerId): void {
+    const connection = _connections.get(languageServerId);
+    if (connection) {
+      connection.close();
+      _connections.delete(languageServerId);
+    }
+  }
+
   /**
    * Return (or create and initialize) the WebSocket associated with the language
    */
@@ -423,7 +430,6 @@ namespace Private {
     capabilities: ClientCapabilities
   ): Promise<LSPConnection> {
     let connection = _connections.get(languageServerId);
-
     if (connection == null) {
       const socket = new WebSocket(uris.socket);
       const connection = new LSPConnection({

@@ -208,12 +208,11 @@ export class VirtualDocument {
 
   constructor(options: VirtualDocument.IOptions) {
     this.options = options;
-    this.path = options.path;
+    this.path = this.options.path;
     this.file_extension = options.file_extension;
     this.hasLspSupportedFile = options.hasLspSupportedFile;
     this.parent = options.parent;
     this.language = options.language;
-    console.log(this.options);
 
     this.virtualLines = new Map();
     this.sourceLines = new Map();

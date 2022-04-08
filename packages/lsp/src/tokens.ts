@@ -81,10 +81,7 @@ export interface ISocketConnectionOptions {
    * The language identifier, corresponding to the API endpoint on the LSP proxy server.
    */
   language: string;
-  /**
-   * Path to the document in the JupyterLab space
-   */
-  documentPath: string;
+
   /**
    * LSP capabilities describing currently supported features
    */
@@ -122,6 +119,10 @@ export interface IDocumentConnectionManager {
   initialized: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   disconnected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
   closed: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
+  documentsChanged: ISignal<
+    IDocumentConnectionManager,
+    Map<VirtualDocument.uri, VirtualDocument>
+  >;
   languageServerManager: ILanguageServerManager;
   updateConfiguration(allServerSettings: TLanguageServerConfigurations): void;
   updateServerConfigurations(
@@ -137,10 +138,44 @@ export interface IDocumentConnectionManager {
     firstTimeoutSeconds?: number,
     secondTimeoutMinute?: number
   ): Promise<ILSPConnection | undefined>;
+  disconnect(languageId: TLanguageServerId): void;
   unregisterDocument(virtualDocument: VirtualDocument): void;
   registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>): void;
 }
 
 export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
   '@jupyterlab/lsp:IDocumentConnectionManager'
+);
+
+export interface IFeature {
+  /**
+   * The feature identifier. It must be the same as the feature plugin id.
+   */
+  id: string;
+
+  /**
+   * LSP capabilities implemented by the feature.
+   */
+  capabilities?: ClientCapabilities;
+}
+
+export interface ILSPFeatureManager {
+  /**
+   * A read-only registry of all registered features.
+   */
+  readonly features: IFeature[];
+
+  /**
+   * Register the new feature (frontend capability)
+   * for one or more code editor implementations.
+   */
+  register(feature: IFeature): void;
+
+  featuresRegistered: ISignal<ILSPFeatureManager, IFeature>;
+
+  clientCapabilities(): ClientCapabilities;
+}
+
+export const ILSPFeatureManager = new Token<ILSPFeatureManager>(
+  '@jupyterlab/lsp:ILSPFeatureManager'
 );

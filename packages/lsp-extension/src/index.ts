@@ -14,19 +14,22 @@ import {
 import { IRunningSessionManagers, IRunningSessions } from '@jupyterlab/running';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 
+import { Signal } from '@lumino/signaling';
 import { ITranslator } from '@jupyterlab/translation';
 import { ICompletionProviderManager } from '@jupyterlab/completer';
 import {
   DocumentConnectionManager,
+  FeatureManager,
   IDocumentConnectionManager,
+  IFeature,
   ILSPConnection,
+  ILSPFeatureManager,
   LanguageServerManager,
-  LspCompletionProvider
+  LspCompletionProvider,
+  TLanguageServerId
 } from '@jupyterlab/lsp';
 import { LabIcon, pythonIcon } from '@jupyterlab/ui-components';
-/**
- * The default terminal extension.
- */
+
 const plugin: JupyterFrontEndPlugin<IDocumentConnectionManager> = {
   activate,
   id: '@jupyterlab/lsp-extension:plugin',
@@ -36,22 +39,31 @@ const plugin: JupyterFrontEndPlugin<IDocumentConnectionManager> = {
   autoStart: true
 };
 
+const featurePlugin: JupyterFrontEndPlugin<ILSPFeatureManager> = {
+  activate: activateFeature,
+  id: '@jupyterlab/lsp-extension:feature',
+  requires: [ISettingRegistry, ITranslator],
+  provides: ILSPFeatureManager,
+  autoStart: true
+};
+
 const completerPlugin: JupyterFrontEndPlugin<void> = {
   activate: activateCompleter,
   id: '@jupyterlab/lsp-extension:completer',
-  requires: [IDocumentConnectionManager, ICompletionProviderManager],
+  requires: [ICompletionProviderManager],
+  optional: [IDocumentConnectionManager, ILSPFeatureManager],
   autoStart: true
 };
 
 /**
  * Activate the lsp plugin.
  */
-async function activate(
+function activate(
   app: JupyterFrontEnd,
   settingRegistry: ISettingRegistry,
   translator: ITranslator,
   runningSessionManagers: IRunningSessionManagers | null
-): Promise<IDocumentConnectionManager> {
+): IDocumentConnectionManager {
   const languageServerManager = new LanguageServerManager({});
   const connectionManager = new DocumentConnectionManager({
     languageServerManager
@@ -62,7 +74,6 @@ async function activate(
   connectionManager.updateConfiguration({});
   connectionManager.updateLogging(false, 'off');
 
-  console.log('connectionManager', connectionManager);
   // Add a sessions manager if the running extension is available
   if (runningSessionManagers) {
     addRunningSessionManager(
@@ -77,16 +88,54 @@ async function activate(
 
 function activateCompleter(
   app: JupyterFrontEnd,
-  lspManager: IDocumentConnectionManager,
-  providerManager: ICompletionProviderManager
+  providerManager: ICompletionProviderManager,
+  lspManager?: IDocumentConnectionManager,
+  featureManager?: ILSPFeatureManager
 ): void {
+  if (!lspManager || !featureManager) {
+    return;
+  }
+  const feature: IFeature = {
+    id: 'lsp-extension:completer',
+    capabilities: {
+      textDocument: {
+        completion: {
+          dynamicRegistration: true,
+          completionItem: {
+            snippetSupport: false,
+            commitCharactersSupport: true,
+            documentationFormat: ['markdown', 'plaintext'],
+            deprecatedSupport: true,
+            preselectSupport: false,
+            tagSupport: {
+              valueSet: [1]
+            }
+          },
+          contextSupport: false
+        }
+      }
+    }
+  };
+
+  featureManager.register(feature);
   const provider = new LspCompletionProvider({ manager: lspManager });
   providerManager.registerProvider(provider);
 }
 
+function activateFeature(
+  app: JupyterFrontEnd,
+  settingRegistry: ISettingRegistry,
+  translator: ITranslator
+): ILSPFeatureManager {
+  const featureManager = new FeatureManager();
+
+  return featureManager;
+}
+
 export class RunningLanguageServers implements IRunningSessions.IRunningItem {
-  constructor(connection: ILSPConnection) {
+  constructor(connection: ILSPConnection, manager: IDocumentConnectionManager) {
     this._connection = connection;
+    this._manager = manager;
   }
   open(): void {
     /** */
@@ -100,9 +149,18 @@ export class RunningLanguageServers implements IRunningSessions.IRunningItem {
     })`;
   }
   shutdown(): void {
-    this._connection.close();
+    for (const [key, value] of this._manager.connections.entries()) {
+      if (value === this._connection) {
+        const document = this._manager.documents.get(key)!;
+        this._manager.unregisterDocument(document);
+      }
+    }
+    this._manager.disconnect(
+      this._connection.serverIdentifier as TLanguageServerId
+    );
   }
   private _connection: ILSPConnection;
+  private _manager: IDocumentConnectionManager;
 }
 
 /**
@@ -114,13 +172,19 @@ function addRunningSessionManager(
   translator: ITranslator
 ) {
   const trans = translator.load('jupyterlab');
+  const signal = new Signal<any, any>(lsManager);
+  lsManager.connected.connect(() => signal.emit(lsManager));
+  lsManager.disconnected.connect(() => signal.emit(lsManager));
+  lsManager.closed.connect(() => signal.emit(lsManager));
+  lsManager.documentsChanged.connect(() => signal.emit(lsManager));
 
   managers.add({
     name: trans.__('Language servers'),
     running: () => {
       const connections = new Set([...lsManager.connections.values()]);
-
-      return [...connections].map(conn => new RunningLanguageServers(conn));
+      return [...connections].map(
+        conn => new RunningLanguageServers(conn, lsManager)
+      );
     },
     shutdownAll: () => {
       /** */
@@ -128,7 +192,7 @@ function addRunningSessionManager(
     refreshRunning: () => {
       /** */
     },
-    runningChanged: lsManager.connected,
+    runningChanged: signal,
     shutdownLabel: trans.__('Shut Down'),
     shutdownAllLabel: trans.__('Shut Down All'),
     shutdownAllConfirmationText: trans.__(
@@ -139,4 +203,4 @@ function addRunningSessionManager(
 /**
  * Export the plugin as default.
  */
-export default [plugin, completerPlugin];
+export default [plugin, featurePlugin, completerPlugin];

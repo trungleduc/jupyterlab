@@ -9,19 +9,20 @@ import {
 } from '@jupyterlab/translation';
 import { JSONObject } from '@lumino/coreutils';
 import { Signal } from '@lumino/signaling';
+import mergeWith from 'lodash.mergewith';
 
 import { ClientCapabilities, LanguageIdentifier } from '../lsp';
 import { IVirtualPosition } from '../positioning';
 import {
   IDocumentConnectionData,
   IDocumentConnectionManager,
+  ILSPFeatureManager,
   ISocketConnectionOptions
 } from '../tokens';
 import { VirtualDocument } from '../virtual/document';
 
 import IButton = Dialog.IButton;
 import createButton = Dialog.createButton;
-
 export class StatusMessage {
   /**
    * The text message to be shown on the statusbar
@@ -82,6 +83,7 @@ export interface IEditorChangedData {
 export interface IAdapterOptions {
   app: JupyterFrontEnd;
   connectionManager: IDocumentConnectionManager;
+  featureManager: ILSPFeatureManager;
   translator?: ITranslator;
 }
 
@@ -478,8 +480,6 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
   private async connect(virtualDocument: VirtualDocument) {
     let language = virtualDocument.language;
 
-    console.log(`will connect using language: ${language}`);
-
     let capabilities: ClientCapabilities = {
       textDocument: {
         synchronization: {
@@ -487,6 +487,20 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
           willSave: false,
           didSave: true,
           willSaveWaitUntil: false
+        },
+        completion: {
+          dynamicRegistration: true,
+          completionItem: {
+            snippetSupport: false,
+            commitCharactersSupport: true,
+            documentationFormat: ['markdown', 'plaintext'],
+            deprecatedSupport: true,
+            preselectSupport: false,
+            tagSupport: {
+              valueSet: [1]
+            }
+          },
+          contextSupport: false
         }
       },
       workspace: {
@@ -495,12 +509,15 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
         }
       }
     };
+    capabilities = mergeWith(
+      capabilities,
+      this.options.featureManager.clientCapabilities()
+    );
 
     let options: ISocketConnectionOptions = {
       capabilities,
       virtualDocument,
       language,
-      documentPath: this.documentPath,
       hasLspSupportedFile: virtualDocument.hasLspSupportedFile
     };
 

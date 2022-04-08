@@ -29,7 +29,10 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
   private _language_info: ILanguageInfoMetadata;
   private type: nbformat.CellType = 'code';
 
-  constructor(options: IAdapterOptions, editorWidget: NotebookPanel) {
+  constructor(
+    protected options: IAdapterOptions,
+    public editorWidget: NotebookPanel
+  ) {
     super(options, editorWidget);
     this.ceEditorToCell = new Map();
     this.editor = editorWidget.content;
@@ -57,7 +60,6 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     change: Session.ISessionConnection.IKernelChangedArgs
   ): Promise<void> {
     if (!change.newValue) {
-      console.log('Kernel was shut down');
       return;
     }
     try {
@@ -66,7 +68,6 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
       await untilReady(this.isReady, -1);
       await this.updateLanguageInfo();
       const new_language_info = this._language_info;
-      console.log('new_language_info', new_language_info);
       if (
         old_language_info?.name != new_language_info.name ||
         old_language_info?.mimetype != new_language_info?.mimetype ||

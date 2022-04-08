@@ -44,7 +44,10 @@ import { JSONObject } from '@lumino/coreutils';
 import { Menu, Widget } from '@lumino/widgets';
 import { Commands, FACTORY, IFileTypeData } from './commands';
 import { Session } from '@jupyterlab/services';
-import { IDocumentConnectionManager } from '@jupyterlab/lsp';
+import {
+  IDocumentConnectionManager,
+  ILSPFeatureManager
+} from '@jupyterlab/lsp';
 
 export { Commands } from './commands';
 
@@ -179,7 +182,7 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
 const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/fileeditor-extension:language-server',
   requires: [IEditorTracker],
-  optional: [IDocumentConnectionManager],
+  optional: [IDocumentConnectionManager, ILSPFeatureManager],
   activate: activateFileEditorLanguageServer,
   autoStart: true
 };
@@ -487,9 +490,10 @@ function activateFileEditorCompleterService(
 function activateFileEditorLanguageServer(
   app: JupyterFrontEnd,
   notebooks: IEditorTracker,
-  manager?: IDocumentConnectionManager
+  connectionManager?: IDocumentConnectionManager,
+  featureManager?: ILSPFeatureManager
 ): void {
-  if (!manager) {
+  if (!connectionManager || !featureManager) {
     return;
   }
 
@@ -497,10 +501,11 @@ function activateFileEditorLanguageServer(
     const adapter = new FileEditorAdapter(
       {
         app,
-        connectionManager: manager
+        connectionManager,
+        featureManager
       },
       notebook
     );
-    manager.registerAdater(notebook.context.path, adapter);
+    connectionManager.registerAdater(notebook.context.path, adapter);
   });
 }
