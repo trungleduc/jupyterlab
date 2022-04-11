@@ -4,6 +4,37 @@
     "outDir": "lib",
     "rootDir": "src"
   },
-  "include": ["src/*", "src/**/*"],
-  "references": []
+  "include": [
+    "src/*",
+    "src/**/*"
+  ],
+  "references": [
+    {
+      "path": "../application"
+    },
+    {
+      "path": "../apputils"
+    },
+    {
+      "path": "../codeeditor"
+    },
+    {
+      "path": "../completer"
+    },
+    {
+      "path": "../coreutils"
+    },
+    {
+      "path": "../docregistry"
+    },
+    {
+      "path": "../services"
+    },
+    {
+      "path": "../translation"
+    },
+    {
+      "path": "../ui-components"
+    }
+  ]
 }

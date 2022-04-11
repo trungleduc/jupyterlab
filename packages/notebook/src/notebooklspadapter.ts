@@ -18,8 +18,8 @@ import { Session } from '@jupyterlab/services';
 import { NotebookPanel } from './panel';
 import { Notebook } from './widget';
 
-import IEditor = CodeEditor.IEditor;
-import ILanguageInfoMetadata = nbformat.ILanguageInfoMetadata;
+type IEditor = CodeEditor.IEditor;
+type ILanguageInfoMetadata = nbformat.ILanguageInfoMetadata;
 
 export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
   editor: Notebook;

@@ -14,7 +14,7 @@ import {
 import { DefaultMap, untilReady } from '../utils';
 
 import type * as CodeMirror from 'codemirror';
-import IRange = CodeEditor.IRange;
+type IRange = CodeEditor.IRange;
 
 type language = string;
 

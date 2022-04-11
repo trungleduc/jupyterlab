@@ -21,8 +21,8 @@ import {
 } from '../tokens';
 import { VirtualDocument } from '../virtual/document';
 
-import IButton = Dialog.IButton;
-import createButton = Dialog.createButton;
+type IButton = Dialog.IButton;
+const createButton = Dialog.createButton;
 export class StatusMessage {
   /**
    * The text message to be shown on the statusbar

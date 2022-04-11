@@ -150,6 +150,9 @@
       "path": "../logconsole-extension"
     },
     {
+      "path": "../lsp"
+    },
+    {
       "path": "../lsp-extension"
     },
     {
@@ -286,9 +289,6 @@
     },
     {
       "path": "../vega5-extension"
-    },
-    {
-      "path": "../lsp"
     }
   ]
 }
