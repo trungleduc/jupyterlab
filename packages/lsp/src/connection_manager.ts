@@ -16,7 +16,7 @@ import {
   TServerKeys
 } from './tokens';
 import { expandDottedPaths, sleep, untilReady } from './utils';
-import { VirtualDocument } from './virtual/document';
+import { IForeignContext, VirtualDocument } from './virtual/document';
 
 import type * as protocol from 'vscode-languageserver-protocol';
 /**
@@ -64,6 +64,16 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
   }
 
   connectDocumentSignals(virtualDocument: VirtualDocument): void {
+ 
+    virtualDocument.foreign_document_opened.connect(
+      this.on_foreign_document_opened,
+      this
+    );
+    
+    virtualDocument.foreign_document_closed.connect(
+      this.on_foreign_document_closed,
+      this
+    );
     this.documents.set(virtualDocument.uri, virtualDocument);
     this.documentsChanged.emit(this.documents);
   }
@@ -72,10 +82,36 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     virtualDocument: VirtualDocument,
     emit = true
   ): void {
+    virtualDocument.foreign_document_opened.disconnect(
+      this.on_foreign_document_opened,
+      this
+    );
+
+    virtualDocument.foreign_document_closed.disconnect(
+      this.on_foreign_document_closed,
+      this
+    );
     this.documents.delete(virtualDocument.uri);
+    for (const foreign of virtualDocument.foreign_documents.values()) {
+      this.disconnectDocumentSignals(foreign, false);
+    }
+
     if (emit) {
       this.documentsChanged.emit(this.documents);
     }
+  }
+
+  on_foreign_document_opened(_host: VirtualDocument, context: IForeignContext) {
+    console.log(
+      'ConnectionManager received foreign document: ',
+      context.foreign_document.uri
+    );
+  }
+
+  on_foreign_document_closed(_host: VirtualDocument, context: IForeignContext) {
+    const { foreign_document } = context;
+    this.unregisterDocument(foreign_document, false)
+    this.disconnectDocumentSignals(foreign_document);
   }
 
   private async connectSocket(
@@ -113,7 +149,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     return connection;
   }
 
-  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>): void {
+  registerAdapter(path: string, adapter: WidgetAdapter<IDocumentWidget>): void {
     this.adapters.set(path, adapter);
     adapter.widget.disposed.connect(() => {
       this.adapters.delete(path);
@@ -160,8 +196,6 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
         settings: parsedSettings
       };
 
-      console.log('Server Update: ', languageServerId);
-      console.log('Sending settings: ', serverSettings);
       Private.updateServerConfiguration(languageServerId, serverSettings);
     }
   }
@@ -173,22 +207,22 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
    */
   onNewConnection = (connection: LSPConnection): void => {
     connection.on('error', e => {
-      console.warn(e);
+      console.error(e);
       // TODO invalid now
       let error: Error = e.length && e.length >= 1 ? e[0] : new Error();
       // TODO: those codes may be specific to my proxy client, need to investigate
       if (error.message.indexOf('code = 1005') !== -1) {
-        console.warn(`Connection failed for ${connection}`);
+        console.error(`Connection failed for ${connection}`);
         this.forEachDocumentOfConnection(connection, virtualDocument => {
-          console.warn('disconnecting ' + virtualDocument.uri);
+          console.error('disconnecting ' + virtualDocument.uri);
           this.closed.emit({ connection, virtualDocument });
           this.ignoredLanguages.add(virtualDocument.language);
-          console.warn(
+          console.error(
             `Cancelling further attempts to connect ${virtualDocument.uri} and other documents for this language (no support from the server)`
           );
         });
       } else if (error.message.indexOf('code = 1006') !== -1) {
-        console.warn('Connection closed by the server');
+        console.error('Connection closed by the server');
       } else {
         console.error('Connection error:', e);
       }
@@ -205,9 +239,9 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
 
     connection.on('close', closedManually => {
       if (!closedManually) {
-        console.warn('Connection unexpectedly disconnected');
+        console.error('Connection unexpectedly disconnected');
       } else {
-        console.warn('Connection closed');
+        console.log('Connection closed');
         this.forEachDocumentOfConnection(connection, virtualDocument => {
           this.closed.emit({ connection, virtualDocument });
         });
@@ -252,7 +286,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     }
   }
 
-  public disconnect(languageId: TLanguageServerId): void {
+  public disconnect(languageId: TLanguageServerId): void {  
     Private.disconnect(languageId);
   }
 
@@ -278,7 +312,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
           150
         );
       } catch {
-        console.warn(
+        console.log(
           `Connection to ${virtualDocument.uri} timed out after ${firstTimeoutSeconds} seconds, will continue retrying for another ${secondTimeoutMinutes} minutes`
         );
         try {
@@ -288,7 +322,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
             1000
           );
         } catch {
-          console.warn(
+          console.log(
             `Connection to ${virtualDocument.uri} timed out again after ${secondTimeoutMinutes} minutes, giving up`
           );
           return;
@@ -301,9 +335,18 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     return connection;
   }
 
-  public unregisterDocument(virtualDocument: VirtualDocument): void {
-    this.connections.delete(virtualDocument.uri);
-    this.documentsChanged.emit(this.documents);
+  public unregisterDocument(virtualDocument: VirtualDocument, emit: boolean = true): void {
+    const connection = this.connections.get(virtualDocument.uri)
+    if(connection){
+      this.connections.delete(virtualDocument.uri);
+      const allConnection = new Set(this.connections.values())
+      if(!allConnection.has(connection)){
+        this.disconnect(connection.serverIdentifier as TLanguageServerId) 
+      }
+      if(emit){
+        this.documentsChanged.emit(this.documents);
+      }
+    }
   }
 
   updateLogging(
@@ -428,7 +471,7 @@ namespace Private {
     uris: DocumentConnectionManager.IURIs,
     onCreate: (connection: LSPConnection) => void,
     capabilities: ClientCapabilities
-  ): Promise<LSPConnection> {
+  ): Promise<LSPConnection> {   
     let connection = _connections.get(languageServerId);
     if (connection == null) {
       const socket = new WebSocket(uris.socket);

@@ -2,13 +2,14 @@ import { IDocumentWidget } from '@jupyterlab/docregistry';
 import { ServerConnection } from '@jupyterlab/services';
 import { Token } from '@lumino/coreutils';
 import { ISignal } from '@lumino/signaling';
-
+import {CellType} from '@jupyterlab/nbformat';
 import { LanguageServer2 as LSPLanguageServerSettings } from './_plugin';
 import * as SCHEMA from './_schema';
 import { WidgetAdapter } from './adapters/adapter';
 import { ILSPConnection } from './connection';
-import { ClientCapabilities } from './lsp';
+import { ClientCapabilities, LanguageIdentifier } from './lsp';
 import { VirtualDocument } from './virtual/document';
+import { IForeignCodeExtractor } from './extractors/types';
 
 export type TLanguageServerId =
   | 'pylsp'
@@ -140,12 +141,10 @@ export interface IDocumentConnectionManager {
   ): Promise<ILSPConnection | undefined>;
   disconnect(languageId: TLanguageServerId): void;
   unregisterDocument(virtualDocument: VirtualDocument): void;
-  registerAdater(path: string, adapter: WidgetAdapter<IDocumentWidget>): void;
+  registerAdapter(path: string, adapter: WidgetAdapter<IDocumentWidget>): void;
 }
 
-export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
-  '@jupyterlab/lsp:IDocumentConnectionManager'
-);
+
 
 export interface IFeature {
   /**
@@ -176,6 +175,35 @@ export interface ILSPFeatureManager {
   clientCapabilities(): ClientCapabilities;
 }
 
+
+
+/**
+ * Manages code transclusion plugins.
+ */
+ export interface ILSPCodeExtractorsManager {
+  /**
+   * Get the foreign code extractors.
+   */
+   getExtractors(cellType: CellType, hostLanguage: string| null): IForeignCodeExtractor[]
+
+  /**
+   * Register the extraction rules to be applied in documents with language `host_language`.
+   */
+  register(
+    extractor: IForeignCodeExtractor,
+    hostLanguage: LanguageIdentifier,
+    cellType?: CellType[]
+  ): void;
+}
+
+export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
+  '@jupyterlab/lsp:IDocumentConnectionManager'
+);
+
 export const ILSPFeatureManager = new Token<ILSPFeatureManager>(
   '@jupyterlab/lsp:ILSPFeatureManager'
+);
+
+export const ILSPCodeExtractorsManager = new Token<ILSPCodeExtractorsManager>(
+  '@jupyterlab/lsp:ILSPCodeExtractorsManager'
 );

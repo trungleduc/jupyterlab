@@ -1,7 +1,7 @@
 import { CodeEditor } from '@jupyterlab/codeeditor';
 import { Signal } from '@lumino/signaling';
 import { IDocumentInfo } from 'lsp-ws-connection';
-
+import * as nbformat from '@jupyterlab/nbformat';
 import { DocumentConnectionManager } from '../connection_manager';
 import { LanguageIdentifier } from '../lsp';
 import {
@@ -14,6 +14,8 @@ import {
 import { DefaultMap, untilReady } from '../utils';
 
 import type * as CodeMirror from 'codemirror';
+import { IForeignCodeExtractor } from '../extractors/types';
+import { ILSPCodeExtractorsManager } from '..';
 type IRange = CodeEditor.IRange;
 
 type language = string;
@@ -33,6 +35,7 @@ interface IVirtualLine {
 export interface ICodeBlockOptions {
   ceEditor: CodeEditor.IEditor;
   value: string;
+  type: nbformat.CellType;
 }
 
 export interface IVirtualDocumentBlock {
@@ -59,8 +62,8 @@ interface ISourceLine {
 }
 
 export interface IForeignContext {
-  foreignDocument: VirtualDocument;
-  parentHost: VirtualDocument;
+  foreign_document: VirtualDocument;
+  parent_host: VirtualDocument;
 }
 
 /**
@@ -123,6 +126,7 @@ export class VirtualDocumentInfo implements IDocumentInfo {
 export namespace VirtualDocument {
   export interface IOptions {
     language: LanguageIdentifier;
+    foreign_code_extractors: ILSPCodeExtractorsManager;
     path: string;
     file_extension: string | undefined;
     /**
@@ -171,6 +175,9 @@ export class VirtualDocument {
   blankLinesBetweenCells: number = 2;
   lastSourceLine: number;
 
+  public foreign_document_closed: Signal<VirtualDocument, IForeignContext>;
+  public foreign_document_opened: Signal<VirtualDocument, IForeignContext>;
+
   public lastVirtualLine: number;
   /**
    * the remote document uri, version and other server-related info
@@ -186,6 +193,7 @@ export class VirtualDocument {
   public hasLspSupportedFile: boolean;
   public parent?: VirtualDocument | null;
   public updateManager: UpdateManager;
+  public foreign_documents: Map<VirtualDocument.virtualId, VirtualDocument>;
   public readonly instanceId: number;
 
   protected sourceLines: Map<number, ISourceLine>;
@@ -201,7 +209,7 @@ export class VirtualDocument {
   private _remainingLifetime: number;
   private _editorToSourceLine: Map<CodeEditor.IEditor, number>;
   private _editorToSourceLineNew: Map<CodeEditor.IEditor, number>;
-
+  private _foreignCodeExtractors: ILSPCodeExtractorsManager;
   private previousValue: string;
   private static instancesCount = 0;
   private readonly options: VirtualDocument.IOptions;
@@ -216,7 +224,9 @@ export class VirtualDocument {
 
     this.virtualLines = new Map();
     this.sourceLines = new Map();
+    this.foreign_documents = new Map();
     this._editorToSourceLine = new Map();
+    this._foreignCodeExtractors = options.foreign_code_extractors;
     this.standalone = options.standalone || false;
     this.instanceId = VirtualDocument.instancesCount;
     VirtualDocument.instancesCount += 1;
@@ -224,7 +234,8 @@ export class VirtualDocument {
       () => new Array<VirtualDocument>()
     );
     this._remainingLifetime = 6;
-
+    this.foreign_document_closed = new Signal(this);
+    this.foreign_document_opened = new Signal(this);
     this.changed = new Signal(this);
     this.unusedDocuments = new Set();
     this.documentInfo = new VirtualDocumentInfo(this);
@@ -254,11 +265,18 @@ export class VirtualDocument {
     this.isDisposed = true;
 
     this.parent = null;
+    
+    // for (const doc of this.foreign_documents.values()) {
+    //   doc.dispose();
+    // }
+    this.close_all_foreign_documents();
+    
 
     this.updateManager.dispose();
 
     // clear all the maps
 
+    this.foreign_documents.clear();
     this.sourceLines.clear();
     this.unusedDocuments.clear();
     this.unusedStandaloneDocuments.clear();
@@ -292,6 +310,10 @@ export class VirtualDocument {
   }
 
   clear(): void {
+    for (let document of this.foreign_documents.values()) {
+      document.clear();
+    }
+
     // TODO - deep clear (assure that there is no memory leak)
     this.unusedStandaloneDocuments.clear();
 
@@ -415,10 +437,11 @@ export class VirtualDocument {
       console.warn('Cannot append code block: document disposed');
       return;
     }
-
     let sourceCellLines = cellCode.split('\n');
-
-    let lines = block.value.split('\n');
+    let { lines, foreign_document_map } = this.prepare_code_block(
+      block,
+      editorShift
+    );
 
     for (let i = 0; i < lines.length; i++) {
       this.virtualLines.set(this.lastVirtualLine + i, {
@@ -437,7 +460,7 @@ export class VirtualDocument {
         },
         // TODO: move those to a new abstraction layer (DocumentBlock class)
         editor: ceEditor,
-        foreignDocumentsMap: new Map(),
+        foreignDocumentsMap: foreign_document_map,
         // TODO this is incorrect, wont work if something was extracted
         virtualLine: this.lastVirtualLine + i
       });
@@ -447,6 +470,7 @@ export class VirtualDocument {
 
     // one empty line is necessary to separate code blocks, next 'n' lines are to silence linters;
     // the final cell does not get the additional lines (thanks to the use of join, see below)
+
     this.lineBlocks.push(lines.join('\n') + '\n');
 
     // adding the virtual lines for the blank lines
@@ -460,6 +484,206 @@ export class VirtualDocument {
 
     this.lastVirtualLine += this.blankLinesBetweenCells;
     this.lastSourceLine += sourceCellLines.length;
+  }
+
+  prepare_code_block(
+    block: ICodeBlockOptions,
+    editor_shift: CodeEditor.IPosition = { line: 0, column: 0 }
+  ) {
+    
+    // let lines = block.value.split('\n');
+    // let foreign_document_map: Map<
+    //   CodeEditor.IRange,
+    //   IVirtualDocumentBlock
+    // > = new Map();
+    let { cell_code_kept, foreign_document_map } = this.extract_foreign_code(
+      block,
+      editor_shift
+    );
+
+    
+    // switch (block.type) {
+    //   case 'code':
+    //     {
+    //       foreign_document_map = new Map();
+    //     }
+    //     break;
+    //   case 'markdown':
+    //     {
+    //       const extracted = this.extract_foreign_code(block, editor_shift);
+    //       foreign_document_map = extracted.foreign_document_map;
+    //     }
+    //     break;
+    //   case 'raw':
+    //     {
+    //       const extracted = this.extract_foreign_code(block, editor_shift);
+    //       foreign_document_map = extracted.foreign_document_map;
+    //     }
+    //     break;
+    //   default:
+    //     break;
+    // }
+    let lines = cell_code_kept.split('\n')
+    return { lines, foreign_document_map };
+  }
+
+  extract_foreign_code(
+    block: ICodeBlockOptions,
+    editor_shift: CodeEditor.IPosition
+  ) {
+    let foreign_document_map = new Map<
+      CodeEditor.IRange,
+      IVirtualDocumentBlock
+    >();
+
+    let cell_code = block.value;
+    const extractorsForAnyLang = this._foreignCodeExtractors.getExtractors(
+      block.type,
+      null
+    );
+    const extractorsForCurrentLang = this._foreignCodeExtractors.getExtractors(
+      block.type,
+      this.language
+    );
+
+
+    for (let extractor of [
+      ...extractorsForAnyLang,
+      ...extractorsForCurrentLang
+    ]) {
+      if (!extractor.has_foreign_code(cell_code, block.type)) {
+        continue;
+      }
+
+      let results = extractor.extract_foreign_code(cell_code);
+
+      let kept_cell_code = '';
+
+      for (let result of results) {
+        if (result.foreign_code !== null) {
+          // result.range should only be null if result.foregin_code is null
+          if (result.range === null) {
+            console.log(
+              'Failure in foreign code extraction: `range` is null but `foreign_code` is not!'
+            );
+            continue;
+          }
+          let foreign_document = this.choose_foreign_document(extractor);
+          foreign_document_map.set(result.range, {
+            virtualLine: foreign_document.lastVirtualLine,
+            virtualDocument: foreign_document,
+            editor: block.ceEditor
+          });
+          let foreign_shift = {
+            line: editor_shift.line + result.range.start.line,
+            column: editor_shift.column + result.range.start.column
+          };
+          foreign_document.appendCodeBlock(
+            {
+              value: result.foreign_code,
+              ceEditor: block.ceEditor,
+              type: 'code'
+            },
+            foreign_shift,
+            result.virtual_shift!
+          );
+        }
+        if (result.host_code != null) {
+          kept_cell_code += result.host_code;
+        }
+      }
+      // not breaking - many extractors are allowed to process the code, one after each other
+      // (think JS and CSS in HTML, or %R inside of %%timeit).
+
+      cell_code = kept_cell_code;
+    }
+
+    return { cell_code_kept: cell_code, foreign_document_map };
+  }
+
+  private choose_foreign_document(extractor: IForeignCodeExtractor) {
+    let foreign_document: VirtualDocument;
+    // if not standalone, try to append to existing document
+    let foreign_exists = this.foreign_documents.has(extractor.language);
+    if (!extractor.standalone && foreign_exists) {
+      foreign_document = this.foreign_documents.get(extractor.language)!;
+    } else {
+      // if (previous document does not exists) or (extractor produces standalone documents
+      // and no old standalone document could be reused): create a new document
+      foreign_document = this.open_foreign(
+        extractor.language,
+        extractor.standalone,
+        extractor.file_extension
+      );
+    }
+    return foreign_document;
+  }
+
+  private open_foreign(
+    language: language,
+    standalone: boolean,
+    file_extension: string
+  ): VirtualDocument {
+    let document = new VirtualDocument({
+      ...this.options,
+      parent: this,
+      standalone: standalone,
+      file_extension: file_extension,
+      language: language
+    });
+    const context: IForeignContext = {
+      foreign_document: document,
+      parent_host: this
+    };
+    this.foreign_document_opened.emit(context);
+    // pass through any future signals
+    document.foreign_document_closed.connect(this.forward_closed_signal, this);
+    document.foreign_document_opened.connect(this.forward_opened_signal, this);
+
+    this.foreign_documents.set(document.virtualId, document);
+
+    return document;
+  }
+
+  private forward_closed_signal(
+    host: VirtualDocument,
+    context: IForeignContext
+  ) {
+    this.foreign_document_closed.emit(context);
+  }
+
+  private forward_opened_signal(
+    host: VirtualDocument,
+    context: IForeignContext
+  ) {
+    this.foreign_document_opened.emit(context);
+  }
+
+  close_foreign(document: VirtualDocument) {
+    this.foreign_document_closed.emit({
+      foreign_document: document,
+      parent_host: this
+    });
+    // remove it from foreign documents list
+    this.foreign_documents.delete(document.virtualId);
+    // and delete the documents within it
+    document.close_all_foreign_documents();
+
+    document.foreign_document_closed.disconnect(
+      this.forward_closed_signal,
+      this
+    );
+    document.foreign_document_opened.disconnect(
+      this.forward_opened_signal,
+      this
+    );
+    document.dispose()
+  }
+
+  close_all_foreign_documents() {
+    for (let document of this.foreign_documents.values()) {
+      this.close_foreign(document);
+    }
   }
 
   get value(): string {
@@ -583,6 +807,9 @@ export class VirtualDocument {
       this.changed.emit(this);
     }
     this.previousValue = this.value;
+    for (let document of this.foreign_documents.values()) {
+      document.maybeEmitChanged();
+    }
   }
 
   static ceToCm(position: CodeEditor.IPosition): CodeMirror.Position {
@@ -614,6 +841,10 @@ export function collectDocuments(
 ): Set<VirtualDocument> {
   let collected = new Set<VirtualDocument>();
   collected.add(virtualDocument);
+  for (let foreign of virtualDocument.foreign_documents.values()) {
+    let foreign_languages = collectDocuments(foreign);
+    foreign_languages.forEach(collected.add, collected);
+  }
   return collected;
 }
 
@@ -697,6 +928,7 @@ export class UpdateManager {
    * as to avoid an easy trap of ignoring the changes in the virtual documents.
    */
   public async updateDocuments(blocks: ICodeBlockOptions[]): Promise<void> {
+
     let update = new Promise<void>((resolve, reject) => {
       // defer the update by up to 50 ms (10 retrials * 5 ms break),
       // awaiting for the previous update to complete.

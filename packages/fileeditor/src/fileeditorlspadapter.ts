@@ -7,7 +7,7 @@ import {
   VirtualDocument,
   WidgetAdapter
 } from '@jupyterlab/lsp';
-
+import * as nbformat from '@jupyterlab/nbformat';
 import { FileEditor } from './widget';
 
 export class FileEditorAdapter extends WidgetAdapter<
@@ -90,13 +90,14 @@ export class FileEditorAdapter extends WidgetAdapter<
     this.editor.model.mimeTypeChanged.connect(this.reloadConnection, this);
   }
 
-  get editors(): CodeEditor.IEditor[] {
-    return [this.editor.editor];
+  get editors(): {ceEditor: CodeEditor.IEditor, type: nbformat.CellType}[] {
+    return [{ceEditor: this.editor.editor, type: "code"}];
   }
 
   createVirtualDocument(): VirtualDocument {
     return new VirtualDocument({
       language: this.language,
+      foreign_code_extractors: this.options.foreignCodeExtractorsManager,
       path: this.documentPath,
       file_extension: this.languageFileExtension,
       // notebooks are continuous, each cell is dependent on the previous one

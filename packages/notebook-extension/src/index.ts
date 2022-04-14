@@ -40,6 +40,7 @@ import { IFileBrowserFactory } from '@jupyterlab/filebrowser';
 import { ILauncher } from '@jupyterlab/launcher';
 import {
   IDocumentConnectionManager,
+  ILSPCodeExtractorsManager,
   ILSPFeatureManager
 } from '@jupyterlab/lsp';
 import { IMainMenu } from '@jupyterlab/mainmenu';
@@ -770,7 +771,11 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
 const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/notebook-extension:language-server',
   requires: [INotebookTracker],
-  optional: [IDocumentConnectionManager, ILSPFeatureManager],
+  optional: [
+    IDocumentConnectionManager,
+    ILSPFeatureManager,
+    ILSPCodeExtractorsManager
+  ],
   activate: activateNotebookLanguageServer,
   autoStart: true
 };
@@ -1685,9 +1690,10 @@ function activateNotebookLanguageServer(
   app: JupyterFrontEnd,
   notebooks: INotebookTracker,
   connectionManager?: IDocumentConnectionManager,
-  featureManager?: ILSPFeatureManager
+  featureManager?: ILSPFeatureManager,
+  codeExtractorManager?: ILSPCodeExtractorsManager
 ): void {
-  if (!connectionManager || !featureManager) {
+  if (!connectionManager || !featureManager || !codeExtractorManager) {
     return;
   }
 
@@ -1696,11 +1702,12 @@ function activateNotebookLanguageServer(
       {
         app,
         connectionManager,
-        featureManager
+        featureManager,
+        foreignCodeExtractorsManager: codeExtractorManager
       },
       notebook
     );
-    connectionManager.registerAdater(notebook.context.path, adapter);
+    connectionManager.registerAdapter(notebook.context.path, adapter);
   });
 }
 

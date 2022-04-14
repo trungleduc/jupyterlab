@@ -11,24 +11,26 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-import { IRunningSessionManagers, IRunningSessions } from '@jupyterlab/running';
-import { ISettingRegistry } from '@jupyterlab/settingregistry';
-
-import { Signal } from '@lumino/signaling';
-import { ITranslator } from '@jupyterlab/translation';
 import { ICompletionProviderManager } from '@jupyterlab/completer';
 import {
+  CodeExtractorsManager,
   DocumentConnectionManager,
   FeatureManager,
   IDocumentConnectionManager,
   IFeature,
+  ILSPCodeExtractorsManager,
   ILSPConnection,
   ILSPFeatureManager,
   LanguageServerManager,
   LspCompletionProvider,
+  TextForeignCodeExtractor,
   TLanguageServerId
 } from '@jupyterlab/lsp';
+import { IRunningSessionManagers, IRunningSessions } from '@jupyterlab/running';
+import { ISettingRegistry } from '@jupyterlab/settingregistry';
+import { ITranslator } from '@jupyterlab/translation';
 import { LabIcon, pythonIcon } from '@jupyterlab/ui-components';
+import { Signal } from '@lumino/signaling';
 
 const plugin: JupyterFrontEndPlugin<IDocumentConnectionManager> = {
   activate,
@@ -52,6 +54,33 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/lsp-extension:completer',
   requires: [ICompletionProviderManager],
   optional: [IDocumentConnectionManager, ILSPFeatureManager],
+  autoStart: true
+};
+
+const codeExtractorManagerPlugin: JupyterFrontEndPlugin<ILSPCodeExtractorsManager> = {
+  id: ILSPCodeExtractorsManager.name,
+  requires: [],
+  activate: app => {
+
+    const extractorManager = new CodeExtractorsManager()
+
+    const markdownCellExtractor = new TextForeignCodeExtractor({
+      language: 'markdown',
+      is_standalone: false,
+      file_extension: 'md',
+      cellType: ['markdown']
+    })
+    extractorManager.register(markdownCellExtractor, null)
+    const rawCellExtractor = new TextForeignCodeExtractor({
+      language: 'text',
+      is_standalone: false,
+      file_extension: 'txt',
+      cellType: ['raw']
+    })
+    extractorManager.register(rawCellExtractor, null)
+    return extractorManager;
+  },
+  provides: ILSPCodeExtractorsManager,
   autoStart: true
 };
 
@@ -151,7 +180,7 @@ export class RunningLanguageServers implements IRunningSessions.IRunningItem {
   shutdown(): void {
     for (const [key, value] of this._manager.connections.entries()) {
       if (value === this._connection) {
-        const document = this._manager.documents.get(key)!;
+        const document = this._manager.documents.get(key)!;     
         this._manager.unregisterDocument(document);
       }
     }
@@ -203,4 +232,9 @@ function addRunningSessionManager(
 /**
  * Export the plugin as default.
  */
-export default [plugin, featurePlugin, completerPlugin];
+export default [
+  plugin,
+  featurePlugin,
+  completerPlugin,
+  codeExtractorManagerPlugin
+];

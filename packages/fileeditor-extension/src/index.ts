@@ -46,6 +46,7 @@ import { Commands, FACTORY, IFileTypeData } from './commands';
 import { Session } from '@jupyterlab/services';
 import {
   IDocumentConnectionManager,
+  ILSPCodeExtractorsManager,
   ILSPFeatureManager
 } from '@jupyterlab/lsp';
 
@@ -182,7 +183,7 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
 const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/fileeditor-extension:language-server',
   requires: [IEditorTracker],
-  optional: [IDocumentConnectionManager, ILSPFeatureManager],
+  optional: [IDocumentConnectionManager, ILSPFeatureManager, ILSPCodeExtractorsManager],
   activate: activateFileEditorLanguageServer,
   autoStart: true
 };
@@ -491,9 +492,10 @@ function activateFileEditorLanguageServer(
   app: JupyterFrontEnd,
   notebooks: IEditorTracker,
   connectionManager?: IDocumentConnectionManager,
-  featureManager?: ILSPFeatureManager
+  featureManager?: ILSPFeatureManager,
+  extractorManager?: ILSPCodeExtractorsManager
 ): void {
-  if (!connectionManager || !featureManager) {
+  if (!connectionManager || !featureManager || !extractorManager) {
     return;
   }
 
@@ -502,10 +504,11 @@ function activateFileEditorLanguageServer(
       {
         app,
         connectionManager,
-        featureManager
+        featureManager,
+        foreignCodeExtractorsManager: extractorManager
       },
       notebook
     );
-    connectionManager.registerAdater(notebook.context.path, adapter);
+    connectionManager.registerAdapter(notebook.context.path, adapter);
   });
 }

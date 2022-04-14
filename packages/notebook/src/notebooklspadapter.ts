@@ -283,7 +283,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     }
   }
 
-  get editors(): CodeEditor.IEditor[] {
+  get editors(): {ceEditor: CodeEditor.IEditor, type: nbformat.CellType}[] {
     if (this.isDisposed) {
       return [];
     }
@@ -297,16 +297,17 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     }
 
     return notebook.widgets
-      .filter(cell => cell.model.type === 'code')
+      // .filter(cell => cell.model.type === 'code')
       .map(cell => {
         this.ceEditorToCell.set(cell.editor, cell);
-        return cell.editor;
+        return {ceEditor: cell.editor, type: cell.model.type};
       });
   }
 
   createVirtualDocument(): VirtualDocument {
     return new VirtualDocument({
       language: this.language,
+      foreign_code_extractors: this.options.foreignCodeExtractorsManager,
       path: this.documentPath,
       file_extension: this.languageFileExtension,
       // notebooks are continuous, each cell is dependent on the previous one

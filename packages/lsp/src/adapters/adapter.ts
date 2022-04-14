@@ -2,6 +2,7 @@ import { JupyterFrontEnd } from '@jupyterlab/application';
 import { Dialog, showDialog } from '@jupyterlab/apputils';
 import { CodeEditor } from '@jupyterlab/codeeditor';
 import { DocumentRegistry, IDocumentWidget } from '@jupyterlab/docregistry';
+import * as nbformat from '@jupyterlab/nbformat';
 import {
   ITranslator,
   nullTranslator,
@@ -16,10 +17,11 @@ import { IVirtualPosition } from '../positioning';
 import {
   IDocumentConnectionData,
   IDocumentConnectionManager,
+  ILSPCodeExtractorsManager,
   ILSPFeatureManager,
   ISocketConnectionOptions
 } from '../tokens';
-import { VirtualDocument } from '../virtual/document';
+import { IForeignContext, VirtualDocument } from '../virtual/document';
 
 type IButton = Dialog.IButton;
 const createButton = Dialog.createButton;
@@ -84,6 +86,7 @@ export interface IAdapterOptions {
   app: JupyterFrontEnd;
   connectionManager: IDocumentConnectionManager;
   featureManager: ILSPFeatureManager;
+  foreignCodeExtractorsManager: ILSPCodeExtractorsManager;
   translator?: ITranslator;
 }
 
@@ -139,8 +142,13 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     this.widget.disposed.connect(this.dispose, this);
   }
 
-  onConnectionClosed(): void {
-    this.dispose();
+  onConnectionClosed(
+    _: IDocumentConnectionManager,
+    { virtualDocument }: IDocumentConnectionData
+  ): void {
+    if (virtualDocument === this.virtualDocument) {
+      this.dispose();
+    }
   }
 
   dispose(): void {
@@ -202,7 +210,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
 
     // pretend that all editors were removed to trigger the disconnection of even handlers
     // they will be connected again on new connection
-    for (let editor of this.editors) {
+    for (let { ceEditor: editor } of this.editors) {
       this.editorRemoved.emit({
         editor: editor
       });
@@ -268,13 +276,19 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
           connection
         );
         connection.sendSaved(virtualDocument.documentInfo);
+        for (let foreign of virtualDocument.foreign_documents.values()) {
+          documentsToSave.push(foreign);
+        }
       }
     }
   }
 
   abstract activeEditor: CodeEditor.IEditor | undefined;
 
-  abstract get editors(): CodeEditor.IEditor[];
+  abstract get editors(): {
+    ceEditor: CodeEditor.IEditor;
+    type: nbformat.CellType;
+  }[];
 
   /**
    * public for use in tests (but otherwise could be private)
@@ -285,10 +299,11 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
       return;
     }
     return this.virtualDocument.updateManager.updateDocuments(
-      this.editors.map(ceEditor => {
+      this.editors.map(({ ceEditor, type }) => {
         return {
           ceEditor: ceEditor,
-          value: ceEditor.model.value.text
+          value: ceEditor.model.value.text,
+          type
         };
       })
     );
@@ -315,7 +330,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
       this.documentChanged(virtualDocument, virtualDocument, true);
 
       console.log(
-        'virtual document(s) for',
+        `virtual document ${virtualDocument.uri} for`,
         this.documentPath,
         'have been initialized'
       );
@@ -409,9 +424,12 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     sendOpen = false
   ): Promise<void> {
     virtualDocument.changed.connect(this.documentChanged, this);
-
+    virtualDocument.foreign_document_opened.connect(
+      this.on_foreign_document_opened,
+      this
+    );
     const connectionContext = await this.connect(virtualDocument).catch(
-      console.warn
+      console.error
     );
 
     if (!sendOpen) {
@@ -423,7 +441,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
         virtualDocument.documentInfo
       );
     } else {
-      console.warn(`Connection for ${virtualDocument.path} was not opened`);
+      console.log(`Connection for ${virtualDocument.uri} was not opened`);
     }
   }
 
@@ -438,6 +456,44 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     }
     this.virtualDocument = virtualDocument;
     this.connectContentChangedSignal();
+  }
+
+  private on_foreign_document_closed(
+    host: VirtualDocument,
+    context: IForeignContext
+  ) {
+    const { foreign_document } = context;
+    foreign_document.foreign_document_closed.disconnect(
+      this.on_foreign_document_closed,
+      this
+    );
+    foreign_document.foreign_document_opened.disconnect(
+      this.on_foreign_document_opened,
+      this
+    );
+    foreign_document.changed.disconnect(this.documentChanged, this);
+  }
+
+  /**
+   * Handler for opening a document contained in a parent document. The assumption
+   * is that the editor already exists for this, and as such the document
+   * should be queued for immediate opening.
+   *
+   * @param host the VirtualDocument that contains the VirtualDocument in another language
+   * @param context information about the foreign VirtualDocument
+   */
+  protected async on_foreign_document_opened(
+    host: VirtualDocument,
+    context: IForeignContext
+  ) {
+    const { foreign_document } = context;
+
+    await this.connectDocument(foreign_document, true);
+
+    foreign_document.foreign_document_closed.connect(
+      this.on_foreign_document_closed,
+      this
+    );
   }
 
   documentChanged(
@@ -487,20 +543,6 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
           willSave: false,
           didSave: true,
           willSaveWaitUntil: false
-        },
-        completion: {
-          dynamicRegistration: true,
-          completionItem: {
-            snippetSupport: false,
-            commitCharactersSupport: true,
-            documentationFormat: ['markdown', 'plaintext'],
-            deprecatedSupport: true,
-            preselectSupport: false,
-            tagSupport: {
-              valueSet: [1]
-            }
-          },
-          contextSupport: false
         }
       },
       workspace: {
