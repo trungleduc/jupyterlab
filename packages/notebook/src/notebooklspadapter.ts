@@ -26,7 +26,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
   private ceEditorToCell: Map<IEditor, Cell>;
   private knownEditorsIds: Set<string>;
 
-  private _language_info: ILanguageInfoMetadata;
+  private _languageInfo: ILanguageInfoMetadata;
   private type: nbformat.CellType = 'code';
 
   constructor(
@@ -47,7 +47,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
       await this.widget.context.sessionContext?.session?.kernel?.info
     )?.language_info;
     if (language_info) {
-      this._language_info = language_info;
+      this._languageInfo = language_info;
     } else {
       throw new Error(
         'Language info update failed (no session, kernel, or info available)'
@@ -64,17 +64,17 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     }
     try {
       // note: we need to wait until ready before updating language info
-      const old_language_info = this._language_info;
+      const oldLanguageInfo = this._languageInfo;
       await untilReady(this.isReady, -1);
       await this.updateLanguageInfo();
-      const new_language_info = this._language_info;
+      const newLanguageInfo = this._languageInfo;
       if (
-        old_language_info?.name != new_language_info.name ||
-        old_language_info?.mimetype != new_language_info?.mimetype ||
-        old_language_info?.file_extension != new_language_info?.file_extension
+        oldLanguageInfo?.name != newLanguageInfo.name ||
+        oldLanguageInfo?.mimetype != newLanguageInfo?.mimetype ||
+        oldLanguageInfo?.file_extension != newLanguageInfo?.file_extension
       ) {
         console.log(
-          `Changed to ${this._language_info.name} kernel, reconnecting`
+          `Changed to ${this._languageInfo.name} kernel, reconnecting`
         );
         this.reloadConnection();
       } else {
@@ -124,7 +124,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
   }
 
   protected language_info(): ILanguageInfoMetadata {
-    return this._language_info;
+    return this._languageInfo;
   }
 
   get mimeType(): string {
@@ -149,12 +149,9 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
   }
 
   protected async initOnceReady(): Promise<void> {
-    console.log('waiting for', this.documentPath, 'to fully load');
     await this.widget.context.sessionContext.ready;
     await untilReady(this.isReady.bind(this), -1);
     await this.updateLanguageInfo();
-    console.log(this.documentPath, 'ready for connection');
-
     this.initVirtual();
 
     // connect the document, but do not open it as the adapter will handle this
@@ -197,7 +194,6 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     let cellsAdded: ICellModel[] = [];
     let cellsRemoved: ICellModel[] = [];
     const type = this.type;
-
     if (change.type === 'set') {
       // handling of conversions is important, because the editors get re-used and their handlers inherited,
       // so we need to clear our handlers from editors of e.g. markdown cells which previously were code cells.
@@ -235,6 +231,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     if (
       cellsRemoved.length ||
       cellsAdded.length ||
+      change.type === 'set' ||
       change.type === 'move' ||
       change.type === 'remove'
     ) {
@@ -283,7 +280,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
     }
   }
 
-  get editors(): {ceEditor: CodeEditor.IEditor, type: nbformat.CellType}[] {
+  get editors(): { ceEditor: CodeEditor.IEditor; type: nbformat.CellType }[] {
     if (this.isDisposed) {
       return [];
     }
@@ -296,18 +293,16 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
       return [];
     }
 
-    return notebook.widgets
-      // .filter(cell => cell.model.type === 'code')
-      .map(cell => {
-        this.ceEditorToCell.set(cell.editor, cell);
-        return {ceEditor: cell.editor, type: cell.model.type};
-      });
+    return notebook.widgets.map(cell => {
+      this.ceEditorToCell.set(cell.editor, cell);
+      return { ceEditor: cell.editor, type: cell.model.type };
+    });
   }
 
   createVirtualDocument(): VirtualDocument {
     return new VirtualDocument({
       language: this.language,
-      foreign_code_extractors: this.options.foreignCodeExtractorsManager,
+      foreignCodeExtractors: this.options.foreignCodeExtractorsManager,
       path: this.documentPath,
       file_extension: this.languageFileExtension,
       // notebooks are continuous, each cell is dependent on the previous one

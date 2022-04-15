@@ -61,23 +61,22 @@ const codeExtractorManagerPlugin: JupyterFrontEndPlugin<ILSPCodeExtractorsManage
   id: ILSPCodeExtractorsManager.name,
   requires: [],
   activate: app => {
-
-    const extractorManager = new CodeExtractorsManager()
+    const extractorManager = new CodeExtractorsManager();
 
     const markdownCellExtractor = new TextForeignCodeExtractor({
       language: 'markdown',
-      is_standalone: false,
+      isStandalone: false,
       file_extension: 'md',
       cellType: ['markdown']
-    })
-    extractorManager.register(markdownCellExtractor, null)
+    });
+    extractorManager.register(markdownCellExtractor, null);
     const rawCellExtractor = new TextForeignCodeExtractor({
       language: 'text',
-      is_standalone: false,
+      isStandalone: false,
       file_extension: 'txt',
       cellType: ['raw']
-    })
-    extractorManager.register(rawCellExtractor, null)
+    });
+    extractorManager.register(rawCellExtractor, null);
     return extractorManager;
   },
   provides: ILSPCodeExtractorsManager,
@@ -180,7 +179,7 @@ export class RunningLanguageServers implements IRunningSessions.IRunningItem {
   shutdown(): void {
     for (const [key, value] of this._manager.connections.entries()) {
       if (value === this._connection) {
-        const document = this._manager.documents.get(key)!;     
+        const document = this._manager.documents.get(key)!;
         this._manager.unregisterDocument(document);
       }
     }

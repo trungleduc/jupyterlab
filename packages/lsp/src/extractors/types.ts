@@ -7,7 +7,7 @@ export interface IExtractedCode {
   /**
    * Foreign code (may be empty, for example line of '%R') or null if none.
    */
-  foreign_code: string | null;
+  foreignCode: string | null;
   /**
    * Range of the foreign code relative to the original source.
    * `null` is used internally to represent a leftover host code after extraction.
@@ -17,11 +17,11 @@ export interface IExtractedCode {
    * Shift due to any additional code inserted at the beginning of the virtual document
    * (usually in order to mock the arguments passed to a magic, or to provide other context clues for the linters)
    */
-  virtual_shift: CodeEditor.IPosition | null;
+  virtualShift: CodeEditor.IPosition | null;
   /**
    * Code to be retained in the virtual document of the host.
    */
-  host_code: string | null;
+  hostCode: string | null;
 }
 
 /**
@@ -53,7 +53,7 @@ export interface IForeignCodeExtractor {
   /**
    * Split the code into the host and foreign code (if any foreign code was detected)
    */
-  extract_foreign_code(code: string): IExtractedCode[];
+  extractForeignCode(code: string): IExtractedCode[];
   /**
    * Does the extractor produce code which should be appended to the previously established virtual document (False)
    * of the same language, or does it produce standalone snippets which require separate connections (True)?
@@ -62,9 +62,9 @@ export interface IForeignCodeExtractor {
   /**
    * Test if there is any foreign code in provided code snippet.
    */
-  has_foreign_code(code: string, cellType: CellType): boolean;
+  hasForeignCode(code: string, cellType: CellType): boolean;
   /**
    * Extension of the virtual document (some servers check extensions of files), e.g. 'py' or 'R'.
    */
-  file_extension: string;
+  fileExtension: string;
 }

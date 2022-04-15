@@ -183,7 +183,11 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
 const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/fileeditor-extension:language-server',
   requires: [IEditorTracker],
-  optional: [IDocumentConnectionManager, ILSPFeatureManager, ILSPCodeExtractorsManager],
+  optional: [
+    IDocumentConnectionManager,
+    ILSPFeatureManager,
+    ILSPCodeExtractorsManager
+  ],
   activate: activateFileEditorLanguageServer,
   autoStart: true
 };

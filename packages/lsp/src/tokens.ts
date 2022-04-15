@@ -1,15 +1,16 @@
 import { IDocumentWidget } from '@jupyterlab/docregistry';
+import { CellType } from '@jupyterlab/nbformat';
 import { ServerConnection } from '@jupyterlab/services';
 import { Token } from '@lumino/coreutils';
 import { ISignal } from '@lumino/signaling';
-import {CellType} from '@jupyterlab/nbformat';
+
 import { LanguageServer2 as LSPLanguageServerSettings } from './_plugin';
 import * as SCHEMA from './_schema';
 import { WidgetAdapter } from './adapters/adapter';
 import { ILSPConnection } from './connection';
+import { IForeignCodeExtractor } from './extractors/types';
 import { ClientCapabilities, LanguageIdentifier } from './lsp';
 import { VirtualDocument } from './virtual/document';
-import { IForeignCodeExtractor } from './extractors/types';
 
 export type TLanguageServerId =
   | 'pylsp'
@@ -144,8 +145,6 @@ export interface IDocumentConnectionManager {
   registerAdapter(path: string, adapter: WidgetAdapter<IDocumentWidget>): void;
 }
 
-
-
 export interface IFeature {
   /**
    * The feature identifier. It must be the same as the feature plugin id.
@@ -175,16 +174,17 @@ export interface ILSPFeatureManager {
   clientCapabilities(): ClientCapabilities;
 }
 
-
-
 /**
  * Manages code transclusion plugins.
  */
- export interface ILSPCodeExtractorsManager {
+export interface ILSPCodeExtractorsManager {
   /**
    * Get the foreign code extractors.
    */
-   getExtractors(cellType: CellType, hostLanguage: string| null): IForeignCodeExtractor[]
+  getExtractors(
+    cellType: CellType,
+    hostLanguage: string | null
+  ): IForeignCodeExtractor[];
 
   /**
    * Register the extraction rules to be applied in documents with language `host_language`.

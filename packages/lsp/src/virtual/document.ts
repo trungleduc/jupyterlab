@@ -1,8 +1,12 @@
-import { CodeEditor } from '@jupyterlab/codeeditor';
-import { Signal } from '@lumino/signaling';
 import { IDocumentInfo } from 'lsp-ws-connection';
-import * as nbformat from '@jupyterlab/nbformat';
+
+import { CodeEditor } from '@jupyterlab/codeeditor';
+import { CellType } from '@jupyterlab/nbformat';
+import { Signal } from '@lumino/signaling';
+
+import { ILSPCodeExtractorsManager } from '../';
 import { DocumentConnectionManager } from '../connection_manager';
+import { IForeignCodeExtractor } from '../extractors/types';
 import { LanguageIdentifier } from '../lsp';
 import {
   IEditorPosition,
@@ -14,8 +18,6 @@ import {
 import { DefaultMap, untilReady } from '../utils';
 
 import type * as CodeMirror from 'codemirror';
-import { IForeignCodeExtractor } from '../extractors/types';
-import { ILSPCodeExtractorsManager } from '..';
 type IRange = CodeEditor.IRange;
 
 type language = string;
@@ -35,7 +37,7 @@ interface IVirtualLine {
 export interface ICodeBlockOptions {
   ceEditor: CodeEditor.IEditor;
   value: string;
-  type: nbformat.CellType;
+  type: CellType;
 }
 
 export interface IVirtualDocumentBlock {
@@ -62,8 +64,8 @@ interface ISourceLine {
 }
 
 export interface IForeignContext {
-  foreign_document: VirtualDocument;
-  parent_host: VirtualDocument;
+  foreignDocument: VirtualDocument;
+  parentHost: VirtualDocument;
 }
 
 /**
@@ -126,7 +128,7 @@ export class VirtualDocumentInfo implements IDocumentInfo {
 export namespace VirtualDocument {
   export interface IOptions {
     language: LanguageIdentifier;
-    foreign_code_extractors: ILSPCodeExtractorsManager;
+    foreignCodeExtractors: ILSPCodeExtractorsManager;
     path: string;
     file_extension: string | undefined;
     /**
@@ -175,8 +177,8 @@ export class VirtualDocument {
   blankLinesBetweenCells: number = 2;
   lastSourceLine: number;
 
-  public foreign_document_closed: Signal<VirtualDocument, IForeignContext>;
-  public foreign_document_opened: Signal<VirtualDocument, IForeignContext>;
+  public foreignDocumentClosed: Signal<VirtualDocument, IForeignContext>;
+  public foreignDocumentOpened: Signal<VirtualDocument, IForeignContext>;
 
   public lastVirtualLine: number;
   /**
@@ -193,7 +195,7 @@ export class VirtualDocument {
   public hasLspSupportedFile: boolean;
   public parent?: VirtualDocument | null;
   public updateManager: UpdateManager;
-  public foreign_documents: Map<VirtualDocument.virtualId, VirtualDocument>;
+  public foreignDocuments: Map<VirtualDocument.virtualId, VirtualDocument>;
   public readonly instanceId: number;
 
   protected sourceLines: Map<number, ISourceLine>;
@@ -224,9 +226,9 @@ export class VirtualDocument {
 
     this.virtualLines = new Map();
     this.sourceLines = new Map();
-    this.foreign_documents = new Map();
+    this.foreignDocuments = new Map();
     this._editorToSourceLine = new Map();
-    this._foreignCodeExtractors = options.foreign_code_extractors;
+    this._foreignCodeExtractors = options.foreignCodeExtractors;
     this.standalone = options.standalone || false;
     this.instanceId = VirtualDocument.instancesCount;
     VirtualDocument.instancesCount += 1;
@@ -234,8 +236,8 @@ export class VirtualDocument {
       () => new Array<VirtualDocument>()
     );
     this._remainingLifetime = 6;
-    this.foreign_document_closed = new Signal(this);
-    this.foreign_document_opened = new Signal(this);
+    this.foreignDocumentClosed = new Signal(this);
+    this.foreignDocumentOpened = new Signal(this);
     this.changed = new Signal(this);
     this.unusedDocuments = new Set();
     this.documentInfo = new VirtualDocumentInfo(this);
@@ -265,18 +267,17 @@ export class VirtualDocument {
     this.isDisposed = true;
 
     this.parent = null;
-    
+
     // for (const doc of this.foreign_documents.values()) {
     //   doc.dispose();
     // }
-    this.close_all_foreign_documents();
-    
+    this.closeAllForeignDocuments();
 
     this.updateManager.dispose();
 
     // clear all the maps
 
-    this.foreign_documents.clear();
+    this.foreignDocuments.clear();
     this.sourceLines.clear();
     this.unusedDocuments.clear();
     this.unusedStandaloneDocuments.clear();
@@ -310,7 +311,7 @@ export class VirtualDocument {
   }
 
   clear(): void {
-    for (let document of this.foreign_documents.values()) {
+    for (let document of this.foreignDocuments.values()) {
       document.clear();
     }
 
@@ -438,7 +439,7 @@ export class VirtualDocument {
       return;
     }
     let sourceCellLines = cellCode.split('\n');
-    let { lines, foreign_document_map } = this.prepare_code_block(
+    let { lines, foreignDocumentsMap } = this.prepareCodeBlock(
       block,
       editorShift
     );
@@ -460,7 +461,7 @@ export class VirtualDocument {
         },
         // TODO: move those to a new abstraction layer (DocumentBlock class)
         editor: ceEditor,
-        foreignDocumentsMap: foreign_document_map,
+        foreignDocumentsMap,
         // TODO this is incorrect, wont work if something was extracted
         virtualLine: this.lastVirtualLine + i
       });
@@ -486,57 +487,39 @@ export class VirtualDocument {
     this.lastSourceLine += sourceCellLines.length;
   }
 
-  prepare_code_block(
+  prepareCodeBlock(
     block: ICodeBlockOptions,
-    editor_shift: CodeEditor.IPosition = { line: 0, column: 0 }
-  ) {
-    
+    editorShift: CodeEditor.IPosition = { line: 0, column: 0 }
+  ): {
+    lines: string[];
+    foreignDocumentsMap: Map<CodeEditor.IRange, IVirtualDocumentBlock>;
+  } {
     // let lines = block.value.split('\n');
     // let foreign_document_map: Map<
     //   CodeEditor.IRange,
     //   IVirtualDocumentBlock
     // > = new Map();
-    let { cell_code_kept, foreign_document_map } = this.extract_foreign_code(
+    let { cellCodeKept, foreignDocumentsMap } = this.extractForeignCode(
       block,
-      editor_shift
+      editorShift
     );
-
-    
-    // switch (block.type) {
-    //   case 'code':
-    //     {
-    //       foreign_document_map = new Map();
-    //     }
-    //     break;
-    //   case 'markdown':
-    //     {
-    //       const extracted = this.extract_foreign_code(block, editor_shift);
-    //       foreign_document_map = extracted.foreign_document_map;
-    //     }
-    //     break;
-    //   case 'raw':
-    //     {
-    //       const extracted = this.extract_foreign_code(block, editor_shift);
-    //       foreign_document_map = extracted.foreign_document_map;
-    //     }
-    //     break;
-    //   default:
-    //     break;
-    // }
-    let lines = cell_code_kept.split('\n')
-    return { lines, foreign_document_map };
+    let lines = cellCodeKept.split('\n');
+    return { lines, foreignDocumentsMap };
   }
 
-  extract_foreign_code(
+  extractForeignCode(
     block: ICodeBlockOptions,
-    editor_shift: CodeEditor.IPosition
-  ) {
-    let foreign_document_map = new Map<
+    editorShift: CodeEditor.IPosition
+  ): {
+    cellCodeKept: string;
+    foreignDocumentsMap: Map<CodeEditor.IRange, IVirtualDocumentBlock>;
+  } {
+    let foreignDocumentsMap = new Map<
       CodeEditor.IRange,
       IVirtualDocumentBlock
     >();
 
-    let cell_code = block.value;
+    let cellCode = block.value;
     const extractorsForAnyLang = this._foreignCodeExtractors.getExtractors(
       block.type,
       null
@@ -546,21 +529,20 @@ export class VirtualDocument {
       this.language
     );
 
-
     for (let extractor of [
       ...extractorsForAnyLang,
       ...extractorsForCurrentLang
     ]) {
-      if (!extractor.has_foreign_code(cell_code, block.type)) {
+      if (!extractor.hasForeignCode(cellCode, block.type)) {
         continue;
       }
 
-      let results = extractor.extract_foreign_code(cell_code);
+      let results = extractor.extractForeignCode(cellCode);
 
-      let kept_cell_code = '';
+      let keptCellCode = '';
 
       for (let result of results) {
-        if (result.foreign_code !== null) {
+        if (result.foreignCode !== null) {
           // result.range should only be null if result.foregin_code is null
           if (result.range === null) {
             console.log(
@@ -568,58 +550,60 @@ export class VirtualDocument {
             );
             continue;
           }
-          let foreign_document = this.choose_foreign_document(extractor);
-          foreign_document_map.set(result.range, {
-            virtualLine: foreign_document.lastVirtualLine,
-            virtualDocument: foreign_document,
+          let foreignDocument = this.chooseForeignDocument(extractor);
+          foreignDocumentsMap.set(result.range, {
+            virtualLine: foreignDocument.lastVirtualLine,
+            virtualDocument: foreignDocument,
             editor: block.ceEditor
           });
-          let foreign_shift = {
-            line: editor_shift.line + result.range.start.line,
-            column: editor_shift.column + result.range.start.column
+          let foreignShift = {
+            line: editorShift.line + result.range.start.line,
+            column: editorShift.column + result.range.start.column
           };
-          foreign_document.appendCodeBlock(
+          foreignDocument.appendCodeBlock(
             {
-              value: result.foreign_code,
+              value: result.foreignCode,
               ceEditor: block.ceEditor,
               type: 'code'
             },
-            foreign_shift,
-            result.virtual_shift!
+            foreignShift,
+            result.virtualShift!
           );
         }
-        if (result.host_code != null) {
-          kept_cell_code += result.host_code;
+        if (result.hostCode != null) {
+          keptCellCode += result.hostCode;
         }
       }
       // not breaking - many extractors are allowed to process the code, one after each other
       // (think JS and CSS in HTML, or %R inside of %%timeit).
 
-      cell_code = kept_cell_code;
+      cellCode = keptCellCode;
     }
 
-    return { cell_code_kept: cell_code, foreign_document_map };
+    return { cellCodeKept: cellCode, foreignDocumentsMap };
   }
 
-  private choose_foreign_document(extractor: IForeignCodeExtractor) {
-    let foreign_document: VirtualDocument;
+  private chooseForeignDocument(
+    extractor: IForeignCodeExtractor
+  ): VirtualDocument {
+    let foreignDocument: VirtualDocument;
     // if not standalone, try to append to existing document
-    let foreign_exists = this.foreign_documents.has(extractor.language);
-    if (!extractor.standalone && foreign_exists) {
-      foreign_document = this.foreign_documents.get(extractor.language)!;
+    let foreignExists = this.foreignDocuments.has(extractor.language);
+    if (!extractor.standalone && foreignExists) {
+      foreignDocument = this.foreignDocuments.get(extractor.language)!;
     } else {
       // if (previous document does not exists) or (extractor produces standalone documents
       // and no old standalone document could be reused): create a new document
-      foreign_document = this.open_foreign(
+      foreignDocument = this.openForeign(
         extractor.language,
         extractor.standalone,
-        extractor.file_extension
+        extractor.fileExtension
       );
     }
-    return foreign_document;
+    return foreignDocument;
   }
 
-  private open_foreign(
+  private openForeign(
     language: language,
     standalone: boolean,
     file_extension: string
@@ -632,57 +616,45 @@ export class VirtualDocument {
       language: language
     });
     const context: IForeignContext = {
-      foreign_document: document,
-      parent_host: this
+      foreignDocument: document,
+      parentHost: this
     };
-    this.foreign_document_opened.emit(context);
+    this.foreignDocumentOpened.emit(context);
     // pass through any future signals
-    document.foreign_document_closed.connect(this.forward_closed_signal, this);
-    document.foreign_document_opened.connect(this.forward_opened_signal, this);
+    document.foreignDocumentClosed.connect(this.forwardClosedSignal, this);
+    document.foreignDocumentOpened.connect(this.forwardOpenedSignal, this);
 
-    this.foreign_documents.set(document.virtualId, document);
+    this.foreignDocuments.set(document.virtualId, document);
 
     return document;
   }
 
-  private forward_closed_signal(
-    host: VirtualDocument,
-    context: IForeignContext
-  ) {
-    this.foreign_document_closed.emit(context);
+  private forwardClosedSignal(host: VirtualDocument, context: IForeignContext) {
+    this.foreignDocumentClosed.emit(context);
   }
 
-  private forward_opened_signal(
-    host: VirtualDocument,
-    context: IForeignContext
-  ) {
-    this.foreign_document_opened.emit(context);
+  private forwardOpenedSignal(host: VirtualDocument, context: IForeignContext) {
+    this.foreignDocumentOpened.emit(context);
   }
 
-  close_foreign(document: VirtualDocument) {
-    this.foreign_document_closed.emit({
-      foreign_document: document,
-      parent_host: this
+  closeForeign(document: VirtualDocument): void {
+    this.foreignDocumentClosed.emit({
+      foreignDocument: document,
+      parentHost: this
     });
     // remove it from foreign documents list
-    this.foreign_documents.delete(document.virtualId);
+    this.foreignDocuments.delete(document.virtualId);
     // and delete the documents within it
-    document.close_all_foreign_documents();
+    document.closeAllForeignDocuments();
 
-    document.foreign_document_closed.disconnect(
-      this.forward_closed_signal,
-      this
-    );
-    document.foreign_document_opened.disconnect(
-      this.forward_opened_signal,
-      this
-    );
-    document.dispose()
+    document.foreignDocumentClosed.disconnect(this.forwardClosedSignal, this);
+    document.foreignDocumentOpened.disconnect(this.forwardOpenedSignal, this);
+    document.dispose();
   }
 
-  close_all_foreign_documents() {
-    for (let document of this.foreign_documents.values()) {
-      this.close_foreign(document);
+  closeAllForeignDocuments(): void {
+    for (let document of this.foreignDocuments.values()) {
+      this.closeForeign(document);
     }
   }
 
@@ -807,7 +779,7 @@ export class VirtualDocument {
       this.changed.emit(this);
     }
     this.previousValue = this.value;
-    for (let document of this.foreign_documents.values()) {
+    for (let document of this.foreignDocuments.values()) {
       document.maybeEmitChanged();
     }
   }
@@ -841,9 +813,9 @@ export function collectDocuments(
 ): Set<VirtualDocument> {
   let collected = new Set<VirtualDocument>();
   collected.add(virtualDocument);
-  for (let foreign of virtualDocument.foreign_documents.values()) {
-    let foreign_languages = collectDocuments(foreign);
-    foreign_languages.forEach(collected.add, collected);
+  for (let foreign of virtualDocument.foreignDocuments.values()) {
+    let foreignLanguages = collectDocuments(foreign);
+    foreignLanguages.forEach(collected.add, collected);
   }
   return collected;
 }
@@ -928,7 +900,6 @@ export class UpdateManager {
    * as to avoid an easy trap of ignoring the changes in the virtual documents.
    */
   public async updateDocuments(blocks: ICodeBlockOptions[]): Promise<void> {
-
     let update = new Promise<void>((resolve, reject) => {
       // defer the update by up to 50 ms (10 retrials * 5 ms break),
       // awaiting for the previous update to complete.

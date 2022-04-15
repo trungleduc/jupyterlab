@@ -64,14 +64,13 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
   }
 
   connectDocumentSignals(virtualDocument: VirtualDocument): void {
- 
-    virtualDocument.foreign_document_opened.connect(
-      this.on_foreign_document_opened,
+    virtualDocument.foreignDocumentOpened.connect(
+      this.onForeignDocumentOpened,
       this
     );
-    
-    virtualDocument.foreign_document_closed.connect(
-      this.on_foreign_document_closed,
+
+    virtualDocument.foreignDocumentClosed.connect(
+      this.onForeignDocumentClosed,
       this
     );
     this.documents.set(virtualDocument.uri, virtualDocument);
@@ -82,17 +81,17 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     virtualDocument: VirtualDocument,
     emit = true
   ): void {
-    virtualDocument.foreign_document_opened.disconnect(
-      this.on_foreign_document_opened,
+    virtualDocument.foreignDocumentOpened.disconnect(
+      this.onForeignDocumentOpened,
       this
     );
 
-    virtualDocument.foreign_document_closed.disconnect(
-      this.on_foreign_document_closed,
+    virtualDocument.foreignDocumentClosed.disconnect(
+      this.onForeignDocumentClosed,
       this
     );
     this.documents.delete(virtualDocument.uri);
-    for (const foreign of virtualDocument.foreign_documents.values()) {
+    for (const foreign of virtualDocument.foreignDocuments.values()) {
       this.disconnectDocumentSignals(foreign, false);
     }
 
@@ -101,17 +100,23 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     }
   }
 
-  on_foreign_document_opened(_host: VirtualDocument, context: IForeignContext) {
+  onForeignDocumentOpened(
+    _host: VirtualDocument,
+    context: IForeignContext
+  ): void {
     console.log(
       'ConnectionManager received foreign document: ',
-      context.foreign_document.uri
+      context.foreignDocument.uri
     );
   }
 
-  on_foreign_document_closed(_host: VirtualDocument, context: IForeignContext) {
-    const { foreign_document } = context;
-    this.unregisterDocument(foreign_document, false)
-    this.disconnectDocumentSignals(foreign_document);
+  onForeignDocumentClosed(
+    _host: VirtualDocument,
+    context: IForeignContext
+  ): void {
+    const { foreignDocument } = context;
+    this.unregisterDocument(foreignDocument, false);
+    this.disconnectDocumentSignals(foreignDocument);
   }
 
   private async connectSocket(
@@ -286,7 +291,7 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     }
   }
 
-  public disconnect(languageId: TLanguageServerId): void {  
+  public disconnect(languageId: TLanguageServerId): void {
     Private.disconnect(languageId);
   }
 
@@ -335,15 +340,18 @@ export class DocumentConnectionManager implements IDocumentConnectionManager {
     return connection;
   }
 
-  public unregisterDocument(virtualDocument: VirtualDocument, emit: boolean = true): void {
-    const connection = this.connections.get(virtualDocument.uri)
-    if(connection){
+  public unregisterDocument(
+    virtualDocument: VirtualDocument,
+    emit: boolean = true
+  ): void {
+    const connection = this.connections.get(virtualDocument.uri);
+    if (connection) {
       this.connections.delete(virtualDocument.uri);
-      const allConnection = new Set(this.connections.values())
-      if(!allConnection.has(connection)){
-        this.disconnect(connection.serverIdentifier as TLanguageServerId) 
+      const allConnection = new Set(this.connections.values());
+      if (!allConnection.has(connection)) {
+        this.disconnect(connection.serverIdentifier as TLanguageServerId);
       }
-      if(emit){
+      if (emit) {
         this.documentsChanged.emit(this.documents);
       }
     }
@@ -471,7 +479,7 @@ namespace Private {
     uris: DocumentConnectionManager.IURIs,
     onCreate: (connection: LSPConnection) => void,
     capabilities: ClientCapabilities
-  ): Promise<LSPConnection> {   
+  ): Promise<LSPConnection> {
     let connection = _connections.get(languageServerId);
     if (connection == null) {
       const socket = new WebSocket(uris.socket);

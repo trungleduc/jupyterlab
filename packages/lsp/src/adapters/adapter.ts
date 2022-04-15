@@ -268,15 +268,12 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
       for (let virtualDocument of documentsToSave) {
         let connection = this.connectionManager.connections.get(
           virtualDocument.uri
-        )!;
-        console.log(
-          'Sending save notification for',
-          virtualDocument.uri,
-          'to',
-          connection
         );
+        if (!connection) {
+          continue;
+        }
         connection.sendSaved(virtualDocument.documentInfo);
-        for (let foreign of virtualDocument.foreign_documents.values()) {
+        for (let foreign of virtualDocument.foreignDocuments.values()) {
           documentsToSave.push(foreign);
         }
       }
@@ -328,12 +325,6 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     await promise.then(() => {
       // refresh the document on the LSP server
       this.documentChanged(virtualDocument, virtualDocument, true);
-
-      console.log(
-        `virtual document ${virtualDocument.uri} for`,
-        this.documentPath,
-        'have been initialized'
-      );
     });
 
     // Note: the logger extension behaves badly with non-default names
@@ -355,22 +346,12 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
 
     data.connection.serverNotifications['window/logMessage'].connect(
       (connection, message) => {
-        console.log(
-          data.connection.serverIdentifier,
-          virtualDocument.uri,
-          message
-        );
         log(connection.serverIdentifier + ': ' + message.message);
       }
     );
 
     data.connection.serverNotifications['window/showMessage'].connect(
       (connection, message) => {
-        console.log(
-          data.connection.serverIdentifier,
-          virtualDocument.uri,
-          message.message
-        );
         void showDialog({
           title: this.trans.__('Message from ') + connection.serverIdentifier,
           body: message.message
@@ -380,11 +361,6 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
 
     data.connection.serverRequests['window/showMessageRequest'].setHandler(
       async params => {
-        console.log(
-          data.connection.serverIdentifier,
-          virtualDocument.uri,
-          params
-        );
         const actionItems = params.actions;
         const buttons = actionItems
           ? actionItems.map(action => {
@@ -423,23 +399,21 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     virtualDocument: VirtualDocument,
     sendOpen = false
   ): Promise<void> {
-    virtualDocument.changed.connect(this.documentChanged, this);
-    virtualDocument.foreign_document_opened.connect(
-      this.on_foreign_document_opened,
+    virtualDocument.foreignDocumentOpened.connect(
+      this.onForeignDocumentOpened,
       this
     );
     const connectionContext = await this.connect(virtualDocument).catch(
       console.error
     );
 
-    if (!sendOpen) {
-      return;
-    }
-
     if (connectionContext && connectionContext.connection) {
-      connectionContext.connection.sendOpenWhenReady(
-        virtualDocument.documentInfo
-      );
+      virtualDocument.changed.connect(this.documentChanged, this);
+      if (sendOpen) {
+        connectionContext.connection.sendOpenWhenReady(
+          virtualDocument.documentInfo
+        );
+      }
     } else {
       console.log(`Connection for ${virtualDocument.uri} was not opened`);
     }
@@ -458,20 +432,20 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
     this.connectContentChangedSignal();
   }
 
-  private on_foreign_document_closed(
-    host: VirtualDocument,
+  private onForeignDocumentClosed(
+    _: VirtualDocument,
     context: IForeignContext
-  ) {
-    const { foreign_document } = context;
-    foreign_document.foreign_document_closed.disconnect(
-      this.on_foreign_document_closed,
+  ): void {
+    const { foreignDocument } = context;
+    foreignDocument.foreignDocumentClosed.disconnect(
+      this.onForeignDocumentClosed,
       this
     );
-    foreign_document.foreign_document_opened.disconnect(
-      this.on_foreign_document_opened,
+    foreignDocument.foreignDocumentOpened.disconnect(
+      this.onForeignDocumentOpened,
       this
     );
-    foreign_document.changed.disconnect(this.documentChanged, this);
+    foreignDocument.changed.disconnect(this.documentChanged, this);
   }
 
   /**
@@ -482,16 +456,16 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
    * @param host the VirtualDocument that contains the VirtualDocument in another language
    * @param context information about the foreign VirtualDocument
    */
-  protected async on_foreign_document_opened(
-    host: VirtualDocument,
+  protected async onForeignDocumentOpened(
+    _: VirtualDocument,
     context: IForeignContext
-  ) {
-    const { foreign_document } = context;
+  ): Promise<void> {
+    const { foreignDocument } = context;
 
-    await this.connectDocument(foreign_document, true);
+    await this.connectDocument(foreignDocument, true);
 
-    foreign_document.foreign_document_closed.connect(
-      this.on_foreign_document_closed,
+    foreignDocument.foreignDocumentClosed.connect(
+      this.onForeignDocumentClosed,
       this
     );
   }
