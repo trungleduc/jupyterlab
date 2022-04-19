@@ -16,10 +16,10 @@ import {
   CodeExtractorsManager,
   DocumentConnectionManager,
   FeatureManager,
-  IDocumentConnectionManager,
   IFeature,
   ILSPCodeExtractorsManager,
   ILSPConnection,
+  ILSPDocumentConnectionManager,
   ILSPFeatureManager,
   LanguageServerManager,
   LspCompletionProvider,
@@ -32,12 +32,12 @@ import { ITranslator } from '@jupyterlab/translation';
 import { LabIcon, pythonIcon } from '@jupyterlab/ui-components';
 import { Signal } from '@lumino/signaling';
 
-const plugin: JupyterFrontEndPlugin<IDocumentConnectionManager> = {
+const plugin: JupyterFrontEndPlugin<ILSPDocumentConnectionManager> = {
   activate,
   id: '@jupyterlab/lsp-extension:plugin',
   requires: [ISettingRegistry, ITranslator],
   optional: [IRunningSessionManagers],
-  provides: IDocumentConnectionManager,
+  provides: ILSPDocumentConnectionManager,
   autoStart: true
 };
 
@@ -53,7 +53,7 @@ const completerPlugin: JupyterFrontEndPlugin<void> = {
   activate: activateCompleter,
   id: '@jupyterlab/lsp-extension:completer',
   requires: [ICompletionProviderManager],
-  optional: [IDocumentConnectionManager, ILSPFeatureManager],
+  optional: [ILSPDocumentConnectionManager, ILSPFeatureManager],
   autoStart: true
 };
 
@@ -91,7 +91,7 @@ function activate(
   settingRegistry: ISettingRegistry,
   translator: ITranslator,
   runningSessionManagers: IRunningSessionManagers | null
-): IDocumentConnectionManager {
+): ILSPDocumentConnectionManager {
   const languageServerManager = new LanguageServerManager({});
   const connectionManager = new DocumentConnectionManager({
     languageServerManager
@@ -117,7 +117,7 @@ function activate(
 function activateCompleter(
   app: JupyterFrontEnd,
   providerManager: ICompletionProviderManager,
-  lspManager?: IDocumentConnectionManager,
+  lspManager?: ILSPDocumentConnectionManager,
   featureManager?: ILSPFeatureManager
 ): void {
   if (!lspManager || !featureManager) {
@@ -161,7 +161,10 @@ function activateFeature(
 }
 
 export class RunningLanguageServers implements IRunningSessions.IRunningItem {
-  constructor(connection: ILSPConnection, manager: IDocumentConnectionManager) {
+  constructor(
+    connection: ILSPConnection,
+    manager: ILSPDocumentConnectionManager
+  ) {
     this._connection = connection;
     this._manager = manager;
   }
@@ -188,7 +191,7 @@ export class RunningLanguageServers implements IRunningSessions.IRunningItem {
     );
   }
   private _connection: ILSPConnection;
-  private _manager: IDocumentConnectionManager;
+  private _manager: ILSPDocumentConnectionManager;
 }
 
 /**
@@ -196,7 +199,7 @@ export class RunningLanguageServers implements IRunningSessions.IRunningItem {
  */
 function addRunningSessionManager(
   managers: IRunningSessionManagers,
-  lsManager: IDocumentConnectionManager,
+  lsManager: ILSPDocumentConnectionManager,
   translator: ITranslator
 ) {
   const trans = translator.load('jupyterlab');

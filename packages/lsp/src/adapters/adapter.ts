@@ -1,3 +1,5 @@
+import mergeWith from 'lodash.mergewith';
+
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { Dialog, showDialog } from '@jupyterlab/apputils';
 import { CodeEditor } from '@jupyterlab/codeeditor';
@@ -10,14 +12,13 @@ import {
 } from '@jupyterlab/translation';
 import { JSONObject } from '@lumino/coreutils';
 import { Signal } from '@lumino/signaling';
-import mergeWith from 'lodash.mergewith';
 
 import { ClientCapabilities, LanguageIdentifier } from '../lsp';
 import { IVirtualPosition } from '../positioning';
 import {
   IDocumentConnectionData,
-  IDocumentConnectionManager,
   ILSPCodeExtractorsManager,
+  ILSPDocumentConnectionManager,
   ILSPFeatureManager,
   ISocketConnectionOptions
 } from '../tokens';
@@ -84,7 +85,7 @@ export interface IEditorChangedData {
 
 export interface IAdapterOptions {
   app: JupyterFrontEnd;
-  connectionManager: IDocumentConnectionManager;
+  connectionManager: ILSPDocumentConnectionManager;
   featureManager: ILSPFeatureManager;
   foreignCodeExtractorsManager: ILSPCodeExtractorsManager;
   translator?: ITranslator;
@@ -99,7 +100,7 @@ export interface IAdapterOptions {
 export abstract class WidgetAdapter<T extends IDocumentWidget> {
   public adapterConnected: Signal<WidgetAdapter<T>, IDocumentConnectionData>;
   public isConnected: boolean;
-  public connectionManager: IDocumentConnectionManager;
+  public connectionManager: ILSPDocumentConnectionManager;
   public trans: TranslationBundle;
   protected isDisposed = false;
 
@@ -143,7 +144,7 @@ export abstract class WidgetAdapter<T extends IDocumentWidget> {
   }
 
   onConnectionClosed(
-    _: IDocumentConnectionManager,
+    _: ILSPDocumentConnectionManager,
     { virtualDocument }: IDocumentConnectionData
   ): void {
     if (virtualDocument === this.virtualDocument) {

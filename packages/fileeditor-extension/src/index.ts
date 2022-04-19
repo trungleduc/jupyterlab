@@ -45,8 +45,8 @@ import { Menu, Widget } from '@lumino/widgets';
 import { Commands, FACTORY, IFileTypeData } from './commands';
 import { Session } from '@jupyterlab/services';
 import {
-  IDocumentConnectionManager,
   ILSPCodeExtractorsManager,
+  ILSPDocumentConnectionManager,
   ILSPFeatureManager
 } from '@jupyterlab/lsp';
 
@@ -184,7 +184,7 @@ const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/fileeditor-extension:language-server',
   requires: [IEditorTracker],
   optional: [
-    IDocumentConnectionManager,
+    ILSPDocumentConnectionManager,
     ILSPFeatureManager,
     ILSPCodeExtractorsManager
   ],
@@ -495,7 +495,7 @@ function activateFileEditorCompleterService(
 function activateFileEditorLanguageServer(
   app: JupyterFrontEnd,
   notebooks: IEditorTracker,
-  connectionManager?: IDocumentConnectionManager,
+  connectionManager?: ILSPDocumentConnectionManager,
   featureManager?: ILSPFeatureManager,
   extractorManager?: ILSPCodeExtractorsManager
 ): void {

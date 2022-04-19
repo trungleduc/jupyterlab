@@ -198,6 +198,7 @@ const SKIP_CSS: Dict<string[]> = {
     '@jupyterlab/launcher-extension',
     '@jupyterlab/logconsole',
     '@jupyterlab/logconsole-extension',
+    '@jupyterlab/lsp',
     '@jupyterlab/lsp-extension',
     '@jupyterlab/mainmenu-extension',
     '@jupyterlab/markdownviewer',

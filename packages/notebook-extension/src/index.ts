@@ -32,6 +32,7 @@ import {
   IEditorServices,
   IPositionModel
 } from '@jupyterlab/codeeditor';
+import { ICompletionProviderManager } from '@jupyterlab/completer';
 import { PageConfig } from '@jupyterlab/coreutils';
 import { IDocumentManager } from '@jupyterlab/docmanager';
 import { ToolbarItems as DocToolbarItems } from '@jupyterlab/docmanager-extension';
@@ -39,8 +40,8 @@ import { DocumentRegistry } from '@jupyterlab/docregistry';
 import { IFileBrowserFactory } from '@jupyterlab/filebrowser';
 import { ILauncher } from '@jupyterlab/launcher';
 import {
-  IDocumentConnectionManager,
   ILSPCodeExtractorsManager,
+  ILSPDocumentConnectionManager,
   ILSPFeatureManager
 } from '@jupyterlab/lsp';
 import { IMainMenu } from '@jupyterlab/mainmenu';
@@ -81,7 +82,6 @@ import {
   notebookIcon,
   pasteIcon
 } from '@jupyterlab/ui-components';
-import { ICompletionProviderManager } from '@jupyterlab/completer';
 import { ArrayExt } from '@lumino/algorithm';
 import { CommandRegistry } from '@lumino/commands';
 import {
@@ -95,6 +95,7 @@ import {
 import { DisposableSet, IDisposable } from '@lumino/disposable';
 import { Message, MessageLoop } from '@lumino/messaging';
 import { Menu, Panel, Widget } from '@lumino/widgets';
+
 import { logNotebookOutput } from './nboutput';
 
 /**
@@ -772,7 +773,7 @@ const languageServerPlugin: JupyterFrontEndPlugin<void> = {
   id: '@jupyterlab/notebook-extension:language-server',
   requires: [INotebookTracker],
   optional: [
-    IDocumentConnectionManager,
+    ILSPDocumentConnectionManager,
     ILSPFeatureManager,
     ILSPCodeExtractorsManager
   ],
@@ -1689,7 +1690,7 @@ function activateNotebookCompleterService(
 function activateNotebookLanguageServer(
   app: JupyterFrontEnd,
   notebooks: INotebookTracker,
-  connectionManager?: IDocumentConnectionManager,
+  connectionManager?: ILSPDocumentConnectionManager,
   featureManager?: ILSPFeatureManager,
   codeExtractorManager?: ILSPCodeExtractorsManager
 ): void {

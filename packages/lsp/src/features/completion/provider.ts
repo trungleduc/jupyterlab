@@ -18,7 +18,7 @@ import {
   ISourcePosition,
   IVirtualPosition
 } from '../../positioning';
-import { IDocumentConnectionManager } from '../../tokens';
+import { ILSPDocumentConnectionManager } from '../../tokens';
 import { VirtualDocument } from '../../virtual/document';
 
 export interface ICompletionsSource {
@@ -264,11 +264,11 @@ export class LspCompletionProvider implements ICompletionProvider {
     | Completer.IRenderer<CompletionHandler.ICompletionItem>
     | null
     | undefined;
-  private _manager: IDocumentConnectionManager;
+  private _manager: ILSPDocumentConnectionManager;
 }
 
 export namespace LspCompletionProvider {
   export interface IOptions {
-    manager: IDocumentConnectionManager;
+    manager: ILSPDocumentConnectionManager;
   }
 }

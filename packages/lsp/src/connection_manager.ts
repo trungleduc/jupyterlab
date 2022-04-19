@@ -8,8 +8,8 @@ import { ILSPConnection, LSPConnection } from './connection';
 import { ClientCapabilities } from './lsp';
 import {
   IDocumentConnectionData,
-  IDocumentConnectionManager,
   ILanguageServerManager,
+  ILSPDocumentConnectionManager,
   ISocketConnectionOptions,
   TLanguageServerConfigurations,
   TLanguageServerId,
@@ -24,25 +24,26 @@ import type * as protocol from 'vscode-languageserver-protocol';
  * (see JupyterLabWidgetAdapter). Using id_path instead of uri led to documents being overwritten
  * as two identical id_paths could be created for two different notebooks.
  */
-export class DocumentConnectionManager implements IDocumentConnectionManager {
+export class DocumentConnectionManager
+  implements ILSPDocumentConnectionManager {
   connections: Map<VirtualDocument.uri, LSPConnection>;
   adapters: Map<string, WidgetAdapter<IDocumentWidget>>;
   documents: Map<VirtualDocument.uri, VirtualDocument>;
-  initialized: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
-  connected: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
+  initialized: Signal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+  connected: Signal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
   /**
    * Connection temporarily lost or could not be fully established; a re-connection will be attempted;
    */
-  disconnected: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
+  disconnected: Signal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
   /**
    * Connection was closed permanently and no-reconnection will be attempted, e.g.:
    *  - there was a serious server error
    *  - user closed the connection,
    *  - re-connection attempts exceeded,
    */
-  closed: Signal<IDocumentConnectionManager, IDocumentConnectionData>;
+  closed: Signal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
   documentsChanged: Signal<
-    IDocumentConnectionManager,
+    ILSPDocumentConnectionManager,
     Map<VirtualDocument.uri, VirtualDocument>
   >;
   languageServerManager: ILanguageServerManager;

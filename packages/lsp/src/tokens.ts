@@ -113,16 +113,16 @@ export interface IDocumentConnectionData {
   connection: ILSPConnection;
 }
 
-export interface IDocumentConnectionManager {
+export interface ILSPDocumentConnectionManager {
   connections: Map<VirtualDocument.uri, ILSPConnection>;
   documents: Map<VirtualDocument.uri, VirtualDocument>;
   adapters: Map<string, WidgetAdapter<IDocumentWidget>>;
-  connected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
-  initialized: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
-  disconnected: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
-  closed: ISignal<IDocumentConnectionManager, IDocumentConnectionData>;
+  connected: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+  initialized: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+  disconnected: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+  closed: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
   documentsChanged: ISignal<
-    IDocumentConnectionManager,
+    ILSPDocumentConnectionManager,
     Map<VirtualDocument.uri, VirtualDocument>
   >;
   languageServerManager: ILanguageServerManager;
@@ -196,9 +196,9 @@ export interface ILSPCodeExtractorsManager {
   ): void;
 }
 
-export const IDocumentConnectionManager = new Token<IDocumentConnectionManager>(
-  '@jupyterlab/lsp:IDocumentConnectionManager'
-);
+export const ILSPDocumentConnectionManager = new Token<
+  ILSPDocumentConnectionManager
+>('@jupyterlab/lsp:ILSPDocumentConnectionManager');
 
 export const ILSPFeatureManager = new Token<ILSPFeatureManager>(
   '@jupyterlab/lsp:ILSPFeatureManager'
