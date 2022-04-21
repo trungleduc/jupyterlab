@@ -1,5 +1,3 @@
-import mergeWith from 'lodash.mergewith';
-
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { Dialog, showDialog } from '@jupyterlab/apputils';
 import { CodeEditor } from '@jupyterlab/codeeditor';
@@ -12,6 +10,7 @@ import {
 } from '@jupyterlab/translation';
 import { JSONObject } from '@lumino/coreutils';
 import { Signal } from '@lumino/signaling';
+import mergeWith from 'lodash.mergewith';
 
 import { ClientCapabilities, LanguageIdentifier } from '../lsp';
 import { IVirtualPosition } from '../positioning';

@@ -191,8 +191,7 @@ export interface ILSPCodeExtractorsManager {
    */
   register(
     extractor: IForeignCodeExtractor,
-    hostLanguage: LanguageIdentifier,
-    cellType?: CellType[]
+    hostLanguage: LanguageIdentifier | null,
   ): void;
 }
 

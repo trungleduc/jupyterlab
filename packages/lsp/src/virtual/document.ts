@@ -130,7 +130,7 @@ export namespace VirtualDocument {
     language: LanguageIdentifier;
     foreignCodeExtractors: ILSPCodeExtractorsManager;
     path: string;
-    file_extension: string | undefined;
+    fileExtension: string | undefined;
     /**
      * Notebooks or any other aggregates of documents are not supported
      * by the LSP specification, and we need to make appropriate
@@ -191,7 +191,7 @@ export class VirtualDocument {
   public virtualLines: Map<number, IVirtualLine>; // probably should go protected
   public changed: Signal<VirtualDocument, VirtualDocument>;
   public path: string;
-  public file_extension: string | undefined;
+  public fileExtension: string | undefined;
   public hasLspSupportedFile: boolean;
   public parent?: VirtualDocument | null;
   public updateManager: UpdateManager;
@@ -219,7 +219,7 @@ export class VirtualDocument {
   constructor(options: VirtualDocument.IOptions) {
     this.options = options;
     this.path = this.options.path;
-    this.file_extension = options.file_extension;
+    this.fileExtension = options.fileExtension;
     this.hasLspSupportedFile = options.hasLspSupportedFile;
     this.parent = options.parent;
     this.language = options.language;
@@ -268,9 +268,6 @@ export class VirtualDocument {
 
     this.parent = null;
 
-    // for (const doc of this.foreign_documents.values()) {
-    //   doc.dispose();
-    // }
     this.closeAllForeignDocuments();
 
     this.updateManager.dispose();
@@ -494,11 +491,7 @@ export class VirtualDocument {
     lines: string[];
     foreignDocumentsMap: Map<CodeEditor.IRange, IVirtualDocumentBlock>;
   } {
-    // let lines = block.value.split('\n');
-    // let foreign_document_map: Map<
-    //   CodeEditor.IRange,
-    //   IVirtualDocumentBlock
-    // > = new Map();
+
     let { cellCodeKept, foreignDocumentsMap } = this.extractForeignCode(
       block,
       editorShift
@@ -606,13 +599,13 @@ export class VirtualDocument {
   private openForeign(
     language: language,
     standalone: boolean,
-    file_extension: string
+    fileExtension: string
   ): VirtualDocument {
     let document = new VirtualDocument({
       ...this.options,
       parent: this,
       standalone: standalone,
-      file_extension: file_extension,
+      fileExtension: fileExtension,
       language: language
     });
     const context: IForeignContext = {
@@ -705,7 +698,7 @@ export class VirtualDocument {
     if (!this.parent) {
       return encodedPath;
     }
-    return encodedPath + '.' + this.idPath + '.' + this.file_extension;
+    return encodedPath + '.' + this.idPath + '.' + this.fileExtension;
   }
 
   transformSourceToEditor(pos: ISourcePosition): IEditorPosition {

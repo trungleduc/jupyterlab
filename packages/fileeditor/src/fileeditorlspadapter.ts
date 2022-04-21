@@ -79,7 +79,6 @@ export class FileEditorAdapter extends WidgetAdapter<
     if (!this.editor.context.isReady) {
       await this.editor.context.ready;
     }
-    console.log(this.documentPath, 'ready for connection');
 
     this.initVirtual();
 
@@ -99,7 +98,7 @@ export class FileEditorAdapter extends WidgetAdapter<
       language: this.language,
       foreignCodeExtractors: this.options.foreignCodeExtractorsManager,
       path: this.documentPath,
-      file_extension: this.languageFileExtension,
+      fileExtension: this.languageFileExtension,
       // notebooks are continuous, each cell is dependent on the previous one
       standalone: true,
       // notebooks are not supported by LSP servers

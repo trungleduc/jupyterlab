@@ -304,7 +304,7 @@ export class NotebookAdapter extends WidgetAdapter<NotebookPanel> {
       language: this.language,
       foreignCodeExtractors: this.options.foreignCodeExtractorsManager,
       path: this.documentPath,
-      file_extension: this.languageFileExtension,
+      fileExtension: this.languageFileExtension,
       // notebooks are continuous, each cell is dependent on the previous one
       standalone: false,
       // notebooks are not supported by LSP servers
