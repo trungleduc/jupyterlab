@@ -27,7 +27,6 @@ export interface IRootPosition extends ISourcePosition {
   isRoot: true;
 }
 
-// TODO: needs heavy unit testing
 export function positionAtOffset(
   offset: number,
   lines: string[]

@@ -26,17 +26,15 @@ describe('@jupyterlab/lsp', () => {
       });
       it('should register the extractor for specified language', () => {
         manager.register(extractor, 'python');
-        expect(manager['_extractorMap'].get('markdown').get('python')).toContain(
-          extractor
-        );
+        expect(
+          manager['_extractorMap'].get('markdown').get('python')
+        ).toContain(extractor);
       });
     });
     describe('#getExtractors', () => {
       it('should get the extractor for all language', () => {
         manager.register(extractor, null);
-        expect(manager.getExtractors('markdown', null)).toContain(
-          extractor
-        );
+        expect(manager.getExtractors('markdown', null)).toContain(extractor);
       });
       it('should get the extractor for specified language', () => {
         manager.register(extractor, 'python');

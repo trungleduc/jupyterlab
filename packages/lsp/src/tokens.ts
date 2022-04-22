@@ -35,8 +35,17 @@ export type TSpecsMap = Map<TServerKeys, SCHEMA.LanguageServerSpec>;
 export type TLanguageId = string;
 
 export interface ILanguageServerManager {
+  /**
+   * Signal emitted when the language server sessions are changed.
+   *
+   */
   sessionsChanged: ISignal<ILanguageServerManager, void>;
+
+  /**
+   * The current session information of running language servers.
+   */
   sessions: TSessionMap;
+
   /**
    * An ordered list of matching >running< sessions, with servers of higher priority higher in the list
    */
@@ -50,9 +59,29 @@ export interface ILanguageServerManager {
   getMatchingSpecs(
     options: ILanguageServerManager.IGetServerIdOptions
   ): TSpecsMap;
+
+  /**
+   * Set the configuration for language servers
+   *
+   */
   setConfiguration(configuration: TLanguageServerConfigurations): void;
+
+  /**
+   * Send a request to language server handler to get the session information.
+   *
+   */
   fetchSessions(): Promise<void>;
+
+  /**
+   * Current endpoint to get the status of running language servers
+   */
   statusUrl: string;
+
+
+  /**
+   *
+   * Status code of the `fetchSession` request.
+   */
   statusCode: number;
 }
 
@@ -114,34 +143,117 @@ export interface IDocumentConnectionData {
 }
 
 export interface ILSPDocumentConnectionManager {
+  /**
+   * The mapping of document uri to the  connection to language server.
+   */
   connections: Map<VirtualDocument.uri, ILSPConnection>;
+
+  /**
+   * The mapping of document uri to the virtual document.
+   */
   documents: Map<VirtualDocument.uri, VirtualDocument>;
+
+  /**
+   * The mapping of document uri to the widget adapter.
+   */
   adapters: Map<string, WidgetAdapter<IDocumentWidget>>;
+
+  /**
+   * Signal emitted when a connection is connected.
+   */
   connected: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
-  initialized: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+
+  /**
+   * Signal emitted when a connection is disconnected.
+   */
   disconnected: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+
+  /**
+   * Signal emitted when the language server is initialized.
+   */
+  initialized: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+
+  /**
+   * Signal emitted when a virtual document is closed.
+   */
   closed: ISignal<ILSPDocumentConnectionManager, IDocumentConnectionData>;
+
+  /**
+   * Signal emitted when the content of a virtual document is changed.
+   */
   documentsChanged: ISignal<
     ILSPDocumentConnectionManager,
     Map<VirtualDocument.uri, VirtualDocument>
   >;
+
+  /**
+   * The language server manager instance.
+   */
   languageServerManager: ILanguageServerManager;
+
+  /**
+   * Handles the settings that do not require an existing connection
+   * with a language server (or can influence to which server the
+   * connection will be created, e.g. `priority`).
+   *
+   * This function should be called **before** initialization of servers.
+   */
   updateConfiguration(allServerSettings: TLanguageServerConfigurations): void;
+
+  /**
+   * Handles the settings that the language servers accept using
+   * `onDidChangeConfiguration` messages, which should be passed under
+   * the "serverSettings" keyword in the setting registry.
+   * Other configuration options are handled by `updateConfiguration` instead.
+   *
+   * This function should be called **after** initialization of servers.
+   */
   updateServerConfigurations(
     allServerSettings: TLanguageServerConfigurations
   ): void;
+
+
+  /**
+   * Retry to connect to the server each `reconnectDelay` seconds 
+   * and for `retrialsLeft` times. 
+   *
+   */
   retryToConnect(
     options: ISocketConnectionOptions,
     reconnectDelay: number,
     retrialsLeft: number
   ): Promise<void>;
+
+  /**
+   * Create a new connection to the language server
+   * @return A promise of the LSP connection
+   */
   connect(
     options: ISocketConnectionOptions,
     firstTimeoutSeconds?: number,
     secondTimeoutMinute?: number
   ): Promise<ILSPConnection | undefined>;
+
+
+  /**
+   * Disconnect the connection to the language server of the requested 
+   * language.
+   *
+   */
   disconnect(languageId: TLanguageServerId): void;
+
+  /**
+   * Disconnect the signals of requested virtual document.
+   *
+   */
   unregisterDocument(virtualDocument: VirtualDocument): void;
+
+  /**
+   * Register a widget adapter.
+   *
+   * @param  path - path to current document widget of input adapter
+   * @param  adapter - the adapter need to be registered
+   */
   registerAdapter(path: string, adapter: WidgetAdapter<IDocumentWidget>): void;
 }
 
@@ -191,7 +303,7 @@ export interface ILSPCodeExtractorsManager {
    */
   register(
     extractor: IForeignCodeExtractor,
-    hostLanguage: LanguageIdentifier | null,
+    hostLanguage: LanguageIdentifier | null
   ): void;
 }
 

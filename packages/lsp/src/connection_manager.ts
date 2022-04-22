@@ -162,27 +162,12 @@ export class DocumentConnectionManager
     });
   }
 
-  /**
-   * Handles the settings that do not require an existing connection
-   * with a language server (or can influence to which server the
-   * connection will be created, e.g. `priority`).
-   *
-   * This function should be called **before** initialization of servers.
-   */
   public updateConfiguration(
     allServerSettings: TLanguageServerConfigurations
   ): void {
     this.languageServerManager.setConfiguration(allServerSettings);
   }
 
-  /**
-   * Handles the settings that the language servers accept using
-   * `onDidChangeConfiguration` messages, which should be passed under
-   * the "serverSettings" keyword in the setting registry.
-   * Other configuration options are handled by `updateConfiguration` instead.
-   *
-   * This function should be called **after** initialization of servers.
-   */
   public updateServerConfigurations(
     allServerSettings: TLanguageServerConfigurations
   ): void {

@@ -1,4 +1,3 @@
-
 import { offsetAtPosition, positionAtOffset } from '@jupyterlab/lsp';
 
 describe('positionAtOffset', () => {
@@ -62,22 +61,13 @@ describe('offsetAtPosition', () => {
     offset = offsetAtPosition({ column: 0, line: 1 }, twoEmptyLines);
     expect(offset).toEqual(1);
 
-    offset = offsetAtPosition(
-      { column: 1, line: 0 },
-      twoSingleCharacterLines
-    );
+    offset = offsetAtPosition({ column: 1, line: 0 }, twoSingleCharacterLines);
     expect(offset).toEqual(1);
 
-    offset = offsetAtPosition(
-      { column: 0, line: 1 },
-      twoSingleCharacterLines
-    );
+    offset = offsetAtPosition({ column: 0, line: 1 }, twoSingleCharacterLines);
     expect(offset).toEqual(2);
 
-    offset = offsetAtPosition(
-      { column: 1, line: 1 },
-      twoSingleCharacterLines
-    );
+    offset = offsetAtPosition({ column: 1, line: 1 }, twoSingleCharacterLines);
     expect(offset).toEqual(3);
   });
 });

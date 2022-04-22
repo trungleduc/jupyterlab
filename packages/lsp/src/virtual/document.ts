@@ -491,7 +491,6 @@ export class VirtualDocument {
     lines: string[];
     foreignDocumentsMap: Map<CodeEditor.IRange, IVirtualDocumentBlock>;
   } {
-
     let { cellCodeKept, foreignDocumentsMap } = this.extractForeignCode(
       block,
       editorShift
