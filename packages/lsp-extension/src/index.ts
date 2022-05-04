@@ -21,22 +21,30 @@ import {
   ILSPConnection,
   ILSPDocumentConnectionManager,
   ILSPFeatureManager,
+  LanguageServer,
   LanguageServerManager,
   LspCompletionProvider,
   TextForeignCodeExtractor,
+  TLanguageServerConfigurations,
   TLanguageServerId
 } from '@jupyterlab/lsp';
 import { IRunningSessionManagers, IRunningSessions } from '@jupyterlab/running';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ITranslator } from '@jupyterlab/translation';
-import { LabIcon, pythonIcon } from '@jupyterlab/ui-components';
+import {
+  IFormComponentRegistry,
+  LabIcon,
+  pythonIcon
+} from '@jupyterlab/ui-components';
 import { Signal } from '@lumino/signaling';
-
+import type { FieldProps } from '@rjsf/core';
+import { renderServerSetting } from './renderer';
+import { PartialJSONObject } from '@lumino/coreutils';
 const plugin: JupyterFrontEndPlugin<ILSPDocumentConnectionManager> = {
   activate,
   id: '@jupyterlab/lsp-extension:plugin',
   requires: [ISettingRegistry, ITranslator],
-  optional: [IRunningSessionManagers],
+  optional: [IRunningSessionManagers, IFormComponentRegistry],
   provides: ILSPDocumentConnectionManager,
   autoStart: true
 };
@@ -90,17 +98,83 @@ function activate(
   app: JupyterFrontEnd,
   settingRegistry: ISettingRegistry,
   translator: ITranslator,
-  runningSessionManagers: IRunningSessionManagers | null
+  runningSessionManagers: IRunningSessionManagers | null,
+  settingRendererRegistry: IFormComponentRegistry | null
 ): ILSPDocumentConnectionManager {
+  const LANGUAGE_SERVERS = 'language_servers';
   const languageServerManager = new LanguageServerManager({});
   const connectionManager = new DocumentConnectionManager({
     languageServerManager
   });
 
-  connectionManager.initialConfigurations = {};
-  // update the server-independent part of configuration immediately
-  connectionManager.updateConfiguration({});
-  connectionManager.updateLogging(false, 'off');
+  const updateOptions = (settings: ISettingRegistry.ISettings) => {
+    const options = settings.composite as Required<LanguageServer>;
+    const languageServerSettings = (options.language_servers ||
+      {}) as TLanguageServerConfigurations;
+
+    connectionManager.initialConfigurations = languageServerSettings;
+    // TODO: if priorities changed reset connections
+    connectionManager.updateConfiguration(languageServerSettings);
+    connectionManager.updateServerConfigurations(languageServerSettings);
+    connectionManager.updateLogging(
+      options.logAllCommunication,
+      options.setTrace
+    );
+  };
+  languageServerManager.sessionsChanged.connect(() => {
+    settingRegistry.transform(plugin.id, {
+      fetch: plugin => {
+        const schema = plugin.schema.properties!;
+        const defaultValue: { [key: string]: any } = {};
+        languageServerManager.sessions.forEach((_, key) => {
+          defaultValue[key] = { priority: 50, serverSettings: {} };
+        });
+
+        schema[LANGUAGE_SERVERS]['default'] = defaultValue;
+        return plugin;
+      },
+      compose: plugin => {
+        const properties = plugin.schema.properties!;
+        const user = plugin.data.user;
+
+        const serverDefaultSettings = properties[LANGUAGE_SERVERS][
+          'default'
+        ] as PartialJSONObject;
+        const serverUserSettings = user[LANGUAGE_SERVERS] as
+          | PartialJSONObject
+          | undefined;
+        let serverComposite = { ...serverDefaultSettings };
+        if (serverUserSettings) {
+          serverComposite = { ...serverComposite, ...serverUserSettings };
+        }
+        const composite: { [key: string]: any } = {
+          [LANGUAGE_SERVERS]: serverComposite
+        };
+        Object.entries(properties).forEach(([key, value]) => {
+          if (key !== LANGUAGE_SERVERS) {
+            if (key in user) {
+              composite[key] = user[key];
+            } else {
+              composite[key] = value.default;
+            }
+          }
+        });
+        plugin.data.composite = composite;
+        return plugin;
+      }
+    });
+    settingRegistry
+      .load(plugin.id)
+      .then(settings => {
+        updateOptions(settings);
+        settings.changed.connect(() => {
+          updateOptions(settings);
+        });
+      })
+      .catch((reason: Error) => {
+        console.error(reason.message);
+      });
+  });
 
   // Add a sessions manager if the running extension is available
   if (runningSessionManagers) {
@@ -109,6 +183,16 @@ function activate(
       connectionManager,
       translator
     );
+  }
+
+  if (settingRendererRegistry) {
+    settingRendererRegistry.addRenderer(
+      LANGUAGE_SERVERS,
+      (props: FieldProps) => {
+        return renderServerSetting(props, translator);
+      }
+    );
+
   }
 
   return connectionManager;
